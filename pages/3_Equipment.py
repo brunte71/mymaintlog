@@ -40,8 +40,7 @@ with tab1:
         with col1:
             selected_equipment = st.dataframe(
                 equipment_df[["object_id", "name", "description", "status", "created_date"]],
-                use_container_width=True,
-                key="equipment_table"
+                use_container_width=True
             )
         
         # Click on row to view details
