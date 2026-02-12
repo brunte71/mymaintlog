@@ -1,13 +1,12 @@
 # Service Management Application
 
-A comprehensive Streamlit-based application for managing services, maintenance, and equipment tracking across different object types (Vehicles, Facilities, Equipment).
+A Streamlit-based application for managing vehicle services, maintenance, and tracking.
 
 ## Features
 
-✅ **Multi-Object Type Support**
-- Manage Vehicles, Facilities, and Equipment
-- Per-object type management pages
-- Individual object details and history
+✅ **Vehicle Management**
+- Manage Vehicles
+- Per-vehicle management and history
 
 ✅ **Service Planning**
 - Schedule maintenance services with custom intervals
@@ -52,8 +51,6 @@ servicemgr/
 ├── pages/                      # Multi-page app pages
 │   ├── 0_Dashboard.py         # Dashboard with analytics
 │   ├── 1_Vehicles.py          # Vehicles management
-│   ├── 2_Facilities.py        # Facilities management
-│   ├── 3_Equipment.py         # Equipment management
 │   ├── 4_Service_Planning.py  # Service scheduling
 │   ├── 5_Service_Reminders.py # Reminder management
 │   └── 6_Service_Reports.py   # Report management
@@ -61,7 +58,7 @@ servicemgr/
 │   ├── data_handler.py        # CSV data operations
 │   └── state_manager.py       # Cross-page state management
 └── data/                       # CSV data storage
-    ├── objects.csv            # All objects (vehicles, facilities, equipment)
+    ├── objects.csv            # Vehicle objects
     ├── services.csv           # Scheduled services
     ├── reminders.csv          # Service reminders
     └── reports.csv            # Service reports
@@ -71,7 +68,7 @@ servicemgr/
 
 ### objects.csv
 - `object_id`: Unique identifier (e.g., VEH-0001, FAC-0001, EQU-0001)
-- `object_type`: Type of object (Vehicles, Facilities, Equipment)
+- `object_type`: Type of object (Vehicles)
 - `name`: Name of the object
 - `description`: Object description
 - `status`: Status (Active, Inactive, Maintenance)
@@ -132,8 +129,7 @@ The app will open in your default browser at `http://localhost:8501`
 
 ### Adding Objects
 
-1. Navigate to **Vehicles**, **Facilities**, or **Equipment** page
-2. Click the **"Add Vehicle/Facility/Equipment"** tab
+1. Navigate to the **Vehicles** page
 3. Fill in the required information
 4. Click **"Add"** button
 
@@ -188,7 +184,7 @@ The application includes a state management system that enables:
 
 Edit `utils/data_handler.py`:
 ```python
-OBJECT_TYPES = ["Vehicles", "Facilities", "Equipment", "YourNewType"]
+OBJECT_TYPES = ["Vehicles"]
 ```
 
 Then create a new page file: `pages/X_YourNewType.py`

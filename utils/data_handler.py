@@ -9,7 +9,7 @@ DATA_DIR.mkdir(exist_ok=True)
 class DataHandler:
     """Handle CSV data storage and retrieval for service management."""
     
-    OBJECT_TYPES = ["Vehicles", "Facilities", "Equipment"]
+    OBJECT_TYPES = ["Vehicles"]
     
     def __init__(self):
         self.objects_file = DATA_DIR / "objects.csv"

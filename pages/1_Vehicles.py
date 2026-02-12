@@ -38,9 +38,18 @@ with tab1:
         # Display vehicles in a table
         col1, col2 = st.columns([4, 1])
         with col1:
+            column_config = {
+                "object_id": st.column_config.TextColumn(width="stretch"),
+                "name": st.column_config.TextColumn(width="stretch"),
+                "description": st.column_config.TextColumn(width="stretch"),
+                "status": st.column_config.TextColumn(width="stretch"),
+                "created_date": st.column_config.TextColumn(width="stretch"),
+            }
             selected_vehicle = st.dataframe(
                 vehicles_df[["object_id", "name", "description", "status", "created_date"]],
-                use_container_width=True
+                use_container_width=True,
+                column_config=column_config,
+                hide_index=True
             )
         
         # Click on row to view details

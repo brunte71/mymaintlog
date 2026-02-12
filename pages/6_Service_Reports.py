@@ -102,7 +102,7 @@ with tab2:
     all_objects = handler.get_objects()
     
     if all_objects.empty:
-        st.warning("No objects found. Please add objects first (Vehicles, Facilities, Equipment).")
+        st.warning("No vehicles found. Please add vehicles first.")
     else:
         with st.form("add_report_form"):
             object_type = st.selectbox("Object Type", handler.OBJECT_TYPES)
