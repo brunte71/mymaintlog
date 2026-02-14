@@ -1,1 +1,2 @@
 service_id,object_id,object_type,service_name,description,interval_days,last_service_date,next_service_date,status,notes,created_date
+SVC-00001,VEH-0001,Vehicles,DOH419 - Förkontroll bes,,365,,2026-02-14,Scheduled,,2026-02-14 09:51:29

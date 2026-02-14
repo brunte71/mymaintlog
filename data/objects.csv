@@ -2,3 +2,4 @@ object_id,object_type,name,description,status,created_date,last_updated
 VEH-0001,Vehicles,DOH419,Bürstner Ixeo XL Fiat Ducato 3.0 - 2011,Active,2026-02-11 20:27:33,2026-02-11 20:27:33
 VEH-0002,Vehicles,FPS774,Opel Combo 1.6 CNG - 2008,Active,2026-02-11 20:27:47,2026-02-11 20:29:47
 VEH-0003,Vehicles,LRF978,Suzuki Swift 1.2 - 2013,Active,2026-02-11 20:37:48,2026-02-11 20:37:48
+VEH-0004,Vehicles,MZL85R,Lynk & Co 01 1.5 PHEV,Active,2026-02-14 09:50:32,2026-02-14 09:50:32
