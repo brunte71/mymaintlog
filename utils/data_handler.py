@@ -9,9 +9,22 @@ DATA_DIR = Path(__file__).parent.parent / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
 class DataHandler:
+
     """Handle CSV data storage and retrieval for service management."""
     OBJECT_TYPES = ["Vehicle", "Facility", "Other"]
     # ...existing code...
+
+    def update_fault_report(self, fault_id, **kwargs):
+        """Update a fault report by fault_id. kwargs keys must match column names."""
+        df = self._read_df_locked(self.fault_reports_file)
+        mask = df["fault_id"] == fault_id
+        if mask.any():
+            for key, value in kwargs.items():
+                if key in df.columns:
+                    df.loc[mask, key] = value
+            self._write_df_atomic(self.fault_reports_file, df)
+            return True
+        return False
 
     def _initialize_files(self):
         # ...existing code...
