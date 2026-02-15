@@ -100,18 +100,27 @@ with add_tab:
                 meter_unit = st.selectbox("Meter Unit", handler.get_meter_units())
                 description = st.text_area("Description", max_chars=1000)
                 uploaded_files = st.file_uploader("Upload Photos", accept_multiple_files=True, type=["png", "jpg", "jpeg"], key="fault_photos")
+                take_photo = st.checkbox("Take photo with camera", key="take_photo_checkbox")
+                camera_image = None
+                if take_photo:
+                    camera_image = st.camera_input("Camera", key="fault_camera")
                 submitted = st.form_submit_button("Add Fault Report")
             if submitted and not obj_list.empty:
-                # Save uploaded files
+                # Save uploaded files and camera photo
                 photo_paths = []
+                photo_dir = os.path.join("data", "fault_photos")
+                os.makedirs(photo_dir, exist_ok=True)
                 if uploaded_files:
-                    photo_dir = os.path.join("data", "fault_photos")
-                    os.makedirs(photo_dir, exist_ok=True)
                     for file in uploaded_files:
                         file_path = os.path.join(photo_dir, f"{datetime.now().strftime('%Y%m%d%H%M%S%f')}_{file.name}")
                         with open(file_path, "wb") as f:
                             f.write(file.read())
                         photo_paths.append(file_path)
+                if camera_image is not None:
+                    cam_file_path = os.path.join(photo_dir, f"{datetime.now().strftime('%Y%m%d%H%M%S%f')}_camera.jpg")
+                    with open(cam_file_path, "wb") as f:
+                        f.write(camera_image.getvalue())
+                    photo_paths.append(cam_file_path)
                 fault_id = handler.add_fault_report(
                     object_id=object_id,
                     object_type=filter_type,
