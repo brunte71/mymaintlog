@@ -1,2 +1,2 @@
-report_id,object_id,object_type,report_type,title,description,completion_date,notes,created_date,actual_meter_reading,meter_unit
-REP-00001,FAC-0001,Facility,Repair,Test repair report,,2026-02-15,,2026-02-15 13:32:51,0,km
+report_id,object_id,object_type,report_type,title,description,completion_date,notes,created_date,actual_meter_reading,meter_unit,user_email
+REP-00001,FAC-0001,Facility,Repair,Test repair report,,2026-02-15,,2026-02-15 13:32:51,0,km,bruntesmobil@gmail.com

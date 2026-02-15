@@ -1,4 +1,4 @@
-service_id,object_id,object_type,service_name,description,interval_days,last_service_date,next_service_date,status,notes,created_date,expected_meter_reading,meter_unit
-SVC-00001,VEH-0001,Vehicle,DOH419 - Förkontroll bes,,365,,2026-04-11,Scheduled,,2026-02-14 09:51:29,112000.0,km
-SVC-00002,VEH-0003,Vehicle,LRF978 - Förkontroll bes,,365,,2026-02-21,Scheduled,,2026-02-15 12:40:39,13300.0,km
-SVC-00003,FAC-0001,Facility,Dörrbyte Simons rum,nan,3650,,2026-03-21,Scheduled,nan,2026-02-15 13:32:06,0.0,km
+service_id,object_id,object_type,service_name,description,interval_days,last_service_date,next_service_date,status,notes,created_date,expected_meter_reading,meter_unit,user_email
+SVC-00001,VEH-0001,Vehicle,DOH419 - Förkontroll bes,,365,,2026-04-11,Scheduled,,2026-02-14 09:51:29,112000.0,km,bruntesmobil@gmail.com
+SVC-00002,VEH-0003,Vehicle,LRF978 - Förkontroll bes,,365,,2026-02-21,Scheduled,,2026-02-15 12:40:39,13300.0,km,bruntesmobil@gmail.com
+SVC-00003,FAC-0001,Facility,Dörrbyte Simons rum,,3650,,2026-03-21,Scheduled,,2026-02-15 13:32:06,0.0,km,bruntesmobil@gmail.com

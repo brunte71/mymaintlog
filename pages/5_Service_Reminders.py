@@ -2,12 +2,30 @@ import streamlit as st
 import pandas as pd
 from utils.data_handler import DataHandler
 from utils.state_manager import StateManager
+from utils.email_notifier import EmailNotifier
 from datetime import datetime
+import yaml
 
 st.set_page_config(page_title="Service Reminders", layout="wide")
 
+
 StateManager.init_session_state()
 handler = DataHandler()
+user_email = st.session_state.get('user_email')
+is_admin = st.session_state.get('user_role') == 'admin'
+
+# Check and send pending email notifications
+email_notifier = EmailNotifier()
+if email_notifier.is_enabled():
+    try:
+        reminders_df = handler.get_reminders(user_email=user_email, is_admin=is_admin)
+        with open("users.yaml") as f:
+            users_config = yaml.safe_load(f)
+        emails_sent = email_notifier.check_and_send_pending_reminders(reminders_df, users_config, handler)
+        if emails_sent > 0:
+            st.sidebar.success(f"📧 {emails_sent} reminder email(s) sent")
+    except Exception as e:
+        st.sidebar.error(f"Email check error: {e}")
 
 st.header("🔔 Service Reminders")
 
@@ -32,7 +50,7 @@ with tab1:
     st.subheader("All Reminders")
     
     # Get reminders
-    reminders_df = handler.get_reminders()
+    reminders_df = handler.get_reminders(user_email=user_email, is_admin=is_admin)
     
     # Apply filters
     if object_type_filter != "All":
@@ -53,20 +71,24 @@ with tab1:
         
         # Sort by days until reminder
         reminders_df = reminders_df.sort_values("days_until")
-        # Enrich with service meter info (expected reading and unit)
-        services_df = handler.get_services()
-        if not services_df.empty:
-            reminders_df = reminders_df.merge(
-                services_df[["service_id", "expected_meter_reading", "meter_unit"]],
-                on="service_id",
-                how="left"
-            )
+        
+        # Add conditional notification_time display
+        # Show notification_time only if email_notification is True, otherwise empty string
+        reminders_df["notification_time_display"] = reminders_df.apply(
+            lambda row: row.get("notification_time", "") if row.get("email_notification", False) else "",
+            axis=1
+        )
         
         # Display table
         display_cols = ["reminder_id", "service_id", "object_id", "object_type", 
-                       "reminder_date", "days_until", "status", "expected_meter_reading", "meter_unit", "notes"]
+                       "reminder_date", "days_until", "status", "email_notification", "notification_time_display", "notes"]
+        
+        # Rename column for display
+        display_df = reminders_df[display_cols].copy()
+        display_df.rename(columns={"notification_time_display": "notification_time"}, inplace=True)
+        
         st.dataframe(
-            reminders_df[display_cols],
+            display_df,
             use_container_width=True,
             hide_index=True
         )
@@ -121,6 +143,18 @@ with tab2:
                 st.write(f"**Meter Unit:** {selected_service.get('meter_unit', '')}")
                 notes = st.text_area("Notes", max_chars=500)
                 
+                # Email notification options
+                st.markdown("---")
+                st.markdown("**📧 Email Notification**")
+                email_notification = st.checkbox("Send email reminder", value=False, 
+                                                 help="Send an email notification on the reminder date")
+                notification_time = st.time_input("Notification time", 
+                                                  value=datetime.strptime("09:00", "%H:%M").time(),
+                                                  help="Time to send the email notification")
+                
+                if not email_notifier.is_enabled():
+                    st.info("ℹ️ Email notifications are disabled. Configure email_config.yaml to enable.")
+                
                 submitted = st.form_submit_button("Add Reminder")
                 if submitted:
                     reminder_id = handler.add_reminder(
@@ -128,7 +162,9 @@ with tab2:
                         object_id=selected_service["object_id"],
                         object_type=selected_service["object_type"],
                         reminder_date=str(reminder_date),
-                        notes=notes
+                        notes=notes,
+                        email_notification=email_notification,
+                        notification_time=notification_time.strftime("%H:%M")
                     )
                     st.success(f"✓ Reminder added successfully! ID: {reminder_id}")
                     st.rerun()
@@ -175,6 +211,31 @@ with tab3:
                 )
                 notes = st.text_area("Notes", value=reminder["notes"], max_chars=500)
                 
+                # Email notification options
+                st.markdown("---")
+                st.markdown("**📧 Email Notification**")
+                email_notification = st.checkbox(
+                    "Send email reminder", 
+                    value=reminder.get('email_notification', False),
+                    help="Send an email notification on the reminder date"
+                )
+                
+                # Parse existing time or use default
+                existing_time = reminder.get('notification_time', '09:00')
+                try:
+                    time_obj = datetime.strptime(existing_time, "%H:%M").time()
+                except:
+                    time_obj = datetime.strptime("09:00", "%H:%M").time()
+                
+                notification_time = st.time_input(
+                    "Notification time", 
+                    value=time_obj,
+                    help="Time to send the email notification"
+                )
+                
+                if not email_notifier.is_enabled():
+                    st.info("ℹ️ Email notifications are disabled. Configure email_config.yaml to enable.")
+                
                 col1, col2 = st.columns(2)
                 with col1:
                     submitted = st.form_submit_button("Update Reminder")
@@ -186,7 +247,10 @@ with tab3:
                         selected_reminder_id,
                         reminder_date=str(reminder_date),
                         status=status,
-                        notes=notes
+                        notes=notes,
+                        email_notification=email_notification,
+                        notification_time=notification_time.strftime("%H:%M"),
+                        email_sent=False  # Reset email_sent when updating
                     )
                     st.success("✓ Reminder updated successfully!")
                     st.rerun()

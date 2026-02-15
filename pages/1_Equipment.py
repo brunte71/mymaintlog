@@ -6,8 +6,11 @@ from datetime import datetime
 
 st.set_page_config(page_title="Equipment", layout="wide")
 
+
 StateManager.init_session_state()
 handler = DataHandler()
+user_email = st.session_state.get('user_email')
+is_admin = st.session_state.get('user_role') == 'admin'
 
 st.header("🛠️ Equipment Management")
 
@@ -26,7 +29,7 @@ status_filter = st.sidebar.selectbox(
 )
 
 # Get objects and apply filters
-vehicles_df = handler.get_objects()
+vehicles_df = handler.get_objects(user_email=user_email, is_admin=is_admin)
 if object_type_filter != "All":
     vehicles_df = vehicles_df[vehicles_df["object_type"] == object_type_filter]
 if status_filter != "All":
@@ -83,7 +86,7 @@ with tab1:
             # Show services for this vehicle
             st.write("---")
             st.subheader("Services for this Equipment")
-            services_df = handler.get_services(object_id=selected_id)
+            services_df = handler.get_services(object_id=selected_id, user_email=user_email, is_admin=is_admin)
             
             if services_df.empty:
                 st.info("No services scheduled for this equipment.")
@@ -97,7 +100,7 @@ with tab1:
             # Show reminders
             st.write("---")
             st.subheader("Reminders for this Equipment")
-            reminders_df = handler.get_reminders(object_id=selected_id)
+            reminders_df = handler.get_reminders(object_id=selected_id, user_email=user_email, is_admin=is_admin)
             
             if reminders_df.empty:
                 st.info("No reminders for this equipment.")
@@ -123,7 +126,8 @@ with tab2:
                     object_type=object_type,
                     name=name,
                     description=description,
-                    status=status
+                    status=status,
+                    user_email=user_email
                 )
                 st.success(f"✓ Equipment added successfully! ID: {vehicle_id}")
                 st.rerun()

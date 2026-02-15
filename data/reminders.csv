@@ -1,3 +1,3 @@
-reminder_id,service_id,object_id,object_type,reminder_date,status,notes,created_date
-REM-00001,SVC-00001,VEH-0001,Vehicle,2026-04-10,Pending,,2026-02-15 12:41:23
-REM-00002,SVC-00002,VEH-0003,Vehicle,2026-02-20,Pending,,2026-02-15 12:42:19
+reminder_id,service_id,object_id,object_type,reminder_date,status,notes,created_date,user_email,email_notification,notification_time,email_sent
+REM-00001,SVC-00001,VEH-0001,Vehicle,2026-04-10,Pending,,2026-02-15 12:41:23,bruntesmobil@gmail.com,False,09:00,False
+REM-00002,SVC-00002,VEH-0003,Vehicle,2026-02-20,Pending,,2026-02-15 12:42:19,bruntesmobil@gmail.com,False,09:00,False

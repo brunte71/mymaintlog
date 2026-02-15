@@ -1,6 +1,6 @@
-fault_id,object_id,object_type,observation_date,actual_meter_reading,meter_unit,description,photo_paths,created_date
-FLT-00001,FAC-0001,Facility,2026-02-15,0,km,Test fault report,,2026-02-15 16:14:20
-FLT-00002,FAC-0001,Facility,2026-02-15,0,km,Test report 2,,2026-02-15 16:32:16
-FLT-00003,FAC-0001,Facility,2026-02-15,0,km,Test report with photo.,data/fault_photos/20260215164629040204_camera_1.jpg,2026-02-15 16:46:29
-FLT-00004,FAC-0002,Facility,2026-02-15,0,km,Test report with multiple photos.,data/fault_photos/20260215165728713875_camera_1.jpg,2026-02-15 16:57:28
-FLT-00005,VEH-0004,Vehicle,2026-02-15,0,km,Test muliple photos again.,data/fault_photos/20260215170812023945_camera_1.jpg;data/fault_photos/20260215170812025383_camera_2.jpg;data/fault_photos/20260215170812026189_camera_3.jpg,2026-02-15 17:08:12
+fault_id,object_id,object_type,observation_date,actual_meter_reading,meter_unit,description,photo_paths,created_date,user_email
+FLT-00001,FAC-0001,Facility,2026-02-15,0,km,Test fault report,,2026-02-15 16:14:20,bruntesmobil@gmail.com
+FLT-00002,FAC-0001,Facility,2026-02-15,0,km,Test report 2,,2026-02-15 16:32:16,bruntesmobil@gmail.com
+FLT-00003,FAC-0001,Facility,2026-02-15,0,km,Test report with photo.,data/fault_photos/20260215164629040204_camera_1.jpg,2026-02-15 16:46:29,bruntesmobil@gmail.com
+FLT-00004,FAC-0002,Facility,2026-02-15,0,km,Test report with multiple photos.,data/fault_photos/20260215165728713875_camera_1.jpg,2026-02-15 16:57:28,bruntesmobil@gmail.com
+FLT-00005,VEH-0004,Vehicle,2026-02-15,0,km,Test muliple photos again.,data/fault_photos/20260215170812023945_camera_1.jpg;data/fault_photos/20260215170812025383_camera_2.jpg;data/fault_photos/20260215170812026189_camera_3.jpg,2026-02-15 17:08:12,bruntesmobil@gmail.com

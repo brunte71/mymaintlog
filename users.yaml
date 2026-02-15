@@ -1,0 +1,32 @@
+credentials:
+  usernames:
+    brunte71@example.com:
+      name: Brunte Admin
+      password: $2b$12$D9w4ANL5qbGiycgz.UzK.ONE.nzDtv/lXXqLOn4TVbZsD09KtM2x6
+      role: admin
+    bruntesmobil+admin@gmail.com:
+      name: Brunte Mobile Admin
+      password: $2b$12$sohanOERgEMMWvH31fcmk.RSVejqmvM9XSXOES9WmzQv0BnANS8g.
+      role: admin
+    bruntesmobil@gmail.com:
+      name: Brunte User
+      password: $2b$12$Ms.gNCsjRzPYH8goFnyEWe44u7zSI34cmcCUlZtlXekaN1E76DnSK
+      role: user
+    user1@example.com:
+      name: User One
+      password: $2b$12$TwjgHZyzqDyht5lq.QmqbeR9qnFmK3SZKplxT/Bj2eymCVQzWnsDi
+      role: user
+  users:
+  - email: brunte71@example.com
+    name: Brunte Admin
+    role: admin
+  - email: user1@example.com
+    name: User One
+    role: user
+  - email: bruntesmobil@gmail.com
+    name: Brunte Mobile User
+    password: $2b$12$ayoUTmrx7JQwYJLCTu5n7uYwToT82E4xDPkz7IZQPhbz2E.DY62F.
+    role: user
+  - email: bruntesmobil+admin@gmail.com
+    name: Brunte Mobile Admin
+    role: admin

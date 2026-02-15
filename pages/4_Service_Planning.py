@@ -6,8 +6,11 @@ from datetime import datetime, timedelta
 
 st.set_page_config(page_title="Service Planning", layout="wide")
 
+
 StateManager.init_session_state()
 handler = DataHandler()
+user_email = st.session_state.get('user_email')
+is_admin = st.session_state.get('user_role') == 'admin'
 
 st.header("📋 Service Planning")
 
@@ -52,9 +55,9 @@ with tab1:
     
     # Get services
     if object_type_filter == "All":
-        services_df = handler.get_services()
+        services_df = handler.get_services(user_email=user_email, is_admin=is_admin)
     else:
-        services_df = handler.get_services(object_type=object_type_filter)
+        services_df = handler.get_services(object_type=object_type_filter, user_email=user_email, is_admin=is_admin)
     
     if services_df.empty:
         st.info("No services scheduled. Add one to get started!")
