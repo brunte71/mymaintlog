@@ -195,6 +195,15 @@ class DataHandler:
             self._write_df_atomic(self.reminders_file, df)
             return True
         return False
+
+    def delete_reminder(self, reminder_id):
+        """Delete a reminder safely using the locked atomic writer."""
+        df = self._read_df_locked(self.reminders_file)
+        if df.empty:
+            return False
+        df = df[df["reminder_id"] != reminder_id]
+        self._write_df_atomic(self.reminders_file, df)
+        return True
     
     # ===== REPORTS MANAGEMENT =====
     def get_reports(self, object_type=None, object_id=None):
@@ -300,6 +309,9 @@ class DataHandler:
     
     def delete_report(self, report_id):
         """Delete a report."""
-        df = pd.read_csv(self.reports_file)
+        df = self._read_df_locked(self.reports_file)
+        if df.empty:
+            return False
         df = df[df["report_id"] != report_id]
-        df.to_csv(self.reports_file, index=False)
+        self._write_df_atomic(self.reports_file, df)
+        return True

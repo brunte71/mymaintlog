@@ -179,9 +179,10 @@ with tab3:
                     st.rerun()
                 
                 if delete_btn:
-                    # Note: delete_reminder method doesn't exist, using update to mark as deleted
-                    reminders_df = pd.read_csv(handler.reminders_file)
-                    reminders_df = reminders_df[reminders_df["reminder_id"] != selected_reminder_id]
-                    reminders_df.to_csv(handler.reminders_file, index=False)
-                    st.success("✓ Reminder deleted successfully!")
+                    # Use handler's safe delete to avoid unguarded file writes
+                    deleted = handler.delete_reminder(selected_reminder_id)
+                    if deleted:
+                        st.success("✓ Reminder deleted successfully!")
+                    else:
+                        st.error("Could not delete reminder (it may have been removed already).")
                     st.rerun()
