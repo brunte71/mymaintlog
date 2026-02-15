@@ -6,8 +6,11 @@ from datetime import datetime, timedelta
 
 st.set_page_config(page_title="Dashboard", layout="wide")
 
+
 StateManager.init_session_state()
 handler = DataHandler()
+user_email = st.session_state.get('user_email')
+is_admin = st.session_state.get('user_role') == 'admin'
 
 st.title("📌 Service Management Dashboard")
 
@@ -15,11 +18,12 @@ st.title("📌 Service Management Dashboard")
 col1, col2, col3, col4 = st.columns(4)
 
 
-objects_df = handler.get_objects()
-services_df = handler.get_services()
-reminders_df = handler.get_reminders()
-reports_df = handler.get_reports()
-fault_reports_df = handler.get_fault_reports()
+
+objects_df = handler.get_objects(user_email=user_email, is_admin=is_admin)
+services_df = handler.get_services(user_email=user_email, is_admin=is_admin)
+reminders_df = handler.get_reminders(user_email=user_email, is_admin=is_admin)
+reports_df = handler.get_reports(user_email=user_email, is_admin=is_admin)
+fault_reports_df = handler.get_fault_reports(user_email=user_email, is_admin=is_admin)
 
 
 with col1:

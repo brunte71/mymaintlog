@@ -7,8 +7,11 @@ from datetime import datetime
 
 st.set_page_config(page_title="Fault Reports", layout="wide")
 
+
 StateManager.init_session_state()
 handler = DataHandler()
+user_email = st.session_state.get('user_email')
+is_admin = st.session_state.get('user_role') == 'admin'
 
 st.header("🚨 Fault Reports")
 
@@ -24,7 +27,7 @@ object_type_filter = st.sidebar.selectbox(
 view_tab, add_tab, edit_tab = st.tabs(["View Fault Reports", "Add Fault Report", "Edit Fault Report"])
 with edit_tab:
     st.subheader("Edit Fault Report")
-    df = handler.get_fault_reports()
+    df = handler.get_fault_reports(user_email=user_email, is_admin=is_admin)
     if df.empty:
         st.info("No fault reports to edit.")
     else:
@@ -90,7 +93,7 @@ with edit_tab:
 
 with view_tab:
     st.subheader("All Fault Reports")
-    df = handler.get_fault_reports()
+    df = handler.get_fault_reports(user_email=user_email, is_admin=is_admin)
     if object_type_filter != "All":
         df = df[df["object_type"] == object_type_filter]
     if df.empty:
@@ -148,7 +151,7 @@ with view_tab:
 
 with add_tab:
     st.subheader("Add New Fault Report")
-    all_objects = handler.get_objects()
+    all_objects = handler.get_objects(user_email=user_email, is_admin=is_admin)
     if all_objects.empty:
         st.warning("No equipment found. Please add equipment first.")
     else:
@@ -232,7 +235,8 @@ with add_tab:
                     actual_meter_reading=int(actual_meter_reading),
                     meter_unit=meter_unit,
                     description=description,
-                    photo_paths=photo_paths
+                    photo_paths=photo_paths,
+                    user_email=user_email
                 )
                 st.success(f"✓ Fault report added successfully! ID: {fault_id}")
                 # Reset only non-widget session state to avoid StreamlitAPIException

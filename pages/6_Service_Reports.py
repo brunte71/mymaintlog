@@ -6,8 +6,11 @@ from datetime import datetime
 
 st.set_page_config(page_title="Service Reports", layout="wide")
 
+
 StateManager.init_session_state()
 handler = DataHandler()
+user_email = st.session_state.get('user_email')
+is_admin = st.session_state.get('user_role') == 'admin'
 
 st.header("📊 Service Reports")
 
@@ -32,7 +35,7 @@ with tab1:
     st.subheader("Service Reports")
     
     # Get reports
-    reports_df = handler.get_reports()
+    reports_df = handler.get_reports(user_email=user_email, is_admin=is_admin)
     
     # Apply filters
     if object_type_filter != "All":

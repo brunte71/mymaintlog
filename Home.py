@@ -11,8 +11,13 @@ Multi-page navigation with cross-page filters and state management.
 Data is stored in CSV files for easy backup and sharing.
 """
 
+
 import streamlit as st
 from utils.state_manager import StateManager
+import yaml
+from yaml.loader import SafeLoader
+import bcrypt
+
 
 # Set page config
 st.set_page_config(
@@ -22,8 +27,60 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# --- User Authentication ---
+# Check if user is already logged in
+if 'authenticated' not in st.session_state:
+    st.session_state['authenticated'] = False
+
+if not st.session_state['authenticated']:
+    st.title("🔐 ServiceMgr Login")
+    
+    # Load users
+    with open("users.yaml") as file:
+        config = yaml.load(file, Loader=SafeLoader)
+    
+    # Login form
+    with st.form("login_form"):
+        username = st.text_input("Email")
+        password = st.text_input("Password", type="password")
+        submit = st.form_submit_button("Login")
+        
+        if submit:
+            # Check if user exists
+            users = config['credentials']['usernames']
+            if username in users:
+                user_data = users[username]
+                # Verify password
+                if bcrypt.checkpw(password.encode(), user_data['password'].encode()):
+                    # Successful login
+                    st.session_state['authenticated'] = True
+                    st.session_state['user_email'] = username
+                    st.session_state['user_role'] = user_data['role']
+                    st.session_state['user_name'] = user_data['name']
+                    st.success(f"Welcome {user_data['name']}!")
+                    st.rerun()
+                else:
+                    st.error("Incorrect password")
+            else:
+                st.error("User not found")
+    
+    st.stop()
+
 # Initialize session state
 StateManager.init_session_state()
+
+# Add logout button in sidebar
+with st.sidebar:
+    st.write(f"👤 {st.session_state.get('user_name', 'User')}")
+    st.write(f"📧 {st.session_state.get('user_email', '')}")
+    if st.session_state.get('user_role') == 'admin':
+        st.write("🔑 Admin")
+    if st.button("Logout"):
+        st.session_state['authenticated'] = False
+        st.session_state['user_email'] = None
+        st.session_state['user_role'] = None
+        st.session_state['user_name'] = None
+        st.rerun()
 
 # Add custom styling
 st.markdown("""

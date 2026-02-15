@@ -1,0 +1,31 @@
+# Email Configuration for Service Reminders
+# Fill in your SMTP settings to enable email notifications
+
+smtp:
+  enabled: false  # Set to true to enable email notifications
+  server: smtp.gmail.com
+  port: 587
+  use_tls: true
+  username: ""  # Your email address
+  password: ""  # Your email password or app-specific password
+  from_email: ""  # Email address to send from
+  from_name: "ServiceMgr"
+
+# Email template
+template:
+  subject: "Service Reminder: {object_name}"
+  body: |
+    Hello {user_name},
+    
+    This is a reminder for the following service:
+    
+    Object: {object_name} ({object_type})
+    Service: {service_name}
+    Reminder Date: {reminder_date}
+    
+    Notes: {notes}
+    
+    Please log in to ServiceMgr to view more details and complete the service.
+    
+    Best regards,
+    ServiceMgr

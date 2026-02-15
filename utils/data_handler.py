@@ -36,15 +36,18 @@ class DataHandler:
             ])
             self._write_df_atomic(self.fault_reports_file, fault_reports_df)
 
-    def get_fault_reports(self, object_type=None, object_id=None):
+    def get_fault_reports(self, object_type=None, object_id=None, user_email=None, is_admin=False):
         df = self._read_df_locked(self.fault_reports_file)
         if object_type:
             df = df[df["object_type"] == object_type]
         if object_id:
             df = df[df["object_id"] == object_id]
+        if user_email and not is_admin:
+            if "user_email" in df.columns:
+                df = df[df["user_email"] == user_email]
         return df
 
-    def add_fault_report(self, object_id, object_type, observation_date, actual_meter_reading, meter_unit, description, photo_paths=None):
+    def add_fault_report(self, object_id, object_type, observation_date, actual_meter_reading, meter_unit, description, photo_paths=None, user_email=None):
         df = self._read_df_locked(self.fault_reports_file)
         fault_id = f"FLT-{len(df) + 1:05d}"
         new_row = pd.DataFrame([{
@@ -56,7 +59,8 @@ class DataHandler:
             "meter_unit": meter_unit,
             "description": description,
             "photo_paths": ";".join(photo_paths) if photo_paths else "",
-            "created_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "created_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "user_email": user_email
         }])
         df = pd.concat([df, new_row], ignore_index=True)
         self._write_df_atomic(self.fault_reports_file, df)
@@ -87,45 +91,47 @@ class DataHandler:
         except Exception:
             self._FileLock = None
     
+
     def _initialize_files(self):
-        """Initialize CSV files if they don't exist."""
+        """Initialize CSV files if they don't exist, with user_email column for user management."""
         # Objects CSV
         if not self.objects_file.exists():
             objects_df = pd.DataFrame(columns=[
                 "object_id", "object_type", "name", "description", 
-                "status", "created_date", "last_updated"
+                "status", "created_date", "last_updated", "user_email"
             ])
             self._write_df_atomic(self.objects_file, objects_df)
-        
         # Services CSV
         if not self.services_file.exists():
             services_df = pd.DataFrame(columns=[
                 "service_id", "object_id", "object_type", "service_name", 
                 "description", "interval_days", "last_service_date", 
                 "next_service_date", "status", "notes", "created_date",
-                # Metering fields
-                "expected_meter_reading", "meter_unit"
+                "expected_meter_reading", "meter_unit", "user_email"
             ])
             self._write_df_atomic(self.services_file, services_df)
-        
         # Reminders CSV
         if not self.reminders_file.exists():
             reminders_df = pd.DataFrame(columns=[
                 "reminder_id", "service_id", "object_id", "object_type",
-                "reminder_date", "status", "notes", "created_date"
+                "reminder_date", "status", "notes", "created_date", "user_email"
             ])
             self._write_df_atomic(self.reminders_file, reminders_df)
-        
         # Reports CSV
         if not self.reports_file.exists():
             reports_df = pd.DataFrame(columns=[
                 "report_id", "object_id", "object_type", "report_type",
                 "title", "description", "completion_date", "notes", "created_date",
-                # Metering fields for reports (actual readings)
-                "actual_meter_reading", "meter_unit"
+                "actual_meter_reading", "meter_unit", "user_email"
             ])
             self._write_df_atomic(self.reports_file, reports_df)
-
+        # Fault Reports CSV
+        self.fault_reports_file = DATA_DIR / "fault_reports.csv"
+        if not self.fault_reports_file.exists():
+            fault_reports_df = pd.DataFrame(columns=[
+                "fault_id", "object_id", "object_type", "observation_date", "actual_meter_reading", "meter_unit", "description", "photo_paths", "created_date", "user_email"
+            ])
+            self._write_df_atomic(self.fault_reports_file, fault_reports_df)
         # Meter units list file
         self.meter_units_file = DATA_DIR / "meter_units.csv"
         if not self.meter_units_file.exists():
@@ -133,25 +139,24 @@ class DataHandler:
             self._write_df_atomic(self.meter_units_file, mu_df)
     
     # ===== OBJECTS MANAGEMENT =====
-    def get_objects(self, object_type=None):
-        """Get all objects or filtered by type."""
+    def get_objects(self, object_type=None, user_email=None, is_admin=False):
+        """Get all objects or filtered by type and user."""
         df = self._read_df_locked(self.objects_file)
         if object_type:
             df = df[df["object_type"] == object_type]
+        if user_email and not is_admin:
+            if "user_email" in df.columns:
+                df = df[df["user_email"] == user_email]
         return df
-    
-    def add_object(self, object_type, name, description="", status="Active"):
+
+    def add_object(self, object_type, name, description="", status="Active", user_email=None):
         """Add a new object."""
-        # normalize object_type before creating
         object_type = self.normalize_object_type(object_type)
         df = self._read_df_locked(self.objects_file)
-        # Prefix based on first three characters of canonical object_type
         prefix = str(object_type)[:3].upper()
-        # Find existing highest index for this object_type
         existing = df[df["object_type"] == object_type]
         next_index = 1
         if not existing.empty and "object_id" in existing.columns:
-            # extract numeric suffix after last '-' and compute max
             import re
             nums = []
             for oid in existing["object_id"].dropna().astype(str).tolist():
@@ -171,7 +176,8 @@ class DataHandler:
             "description": description,
             "status": status,
             "created_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "user_email": user_email
         }])
         df = pd.concat([df, new_row], ignore_index=True)
         self._write_df_atomic(self.objects_file, df)
@@ -199,20 +205,22 @@ class DataHandler:
         self._write_df_atomic(self.objects_file, df)
     
     # ===== SERVICES MANAGEMENT =====
-    def get_services(self, object_type=None, object_id=None):
-        """Get services filtered by type and/or object."""
+    def get_services(self, object_type=None, object_id=None, user_email=None, is_admin=False):
+        """Get services filtered by type, object, and user."""
         df = self._read_df_locked(self.services_file)
         if object_type:
             df = df[df["object_type"] == object_type]
         if object_id:
             df = df[df["object_id"] == object_id]
+        if user_email and not is_admin:
+            if "user_email" in df.columns:
+                df = df[df["user_email"] == user_email]
         return df
-    
+
     def add_service(self, object_id, object_type, service_name, interval_days, 
                    description="", status="Scheduled", notes="",
-                   expected_meter_reading=None, meter_unit=None):
+                   expected_meter_reading=None, meter_unit=None, user_email=None):
         """Add a new service."""
-        # normalize object_type
         object_type = self.normalize_object_type(object_type)
         df = self._read_df_locked(self.services_file)
         service_id = f"SVC-{len(df) + 1:05d}"
@@ -229,7 +237,8 @@ class DataHandler:
             "notes": notes,
             "created_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "expected_meter_reading": expected_meter_reading,
-            "meter_unit": meter_unit
+            "meter_unit": meter_unit,
+            "user_email": user_email
         }])
         df = pd.concat([df, new_row], ignore_index=True)
         self._write_df_atomic(self.services_file, df)
@@ -291,8 +300,8 @@ class DataHandler:
         self._write_df_atomic(self.services_file, df)
     
     # ===== REMINDERS MANAGEMENT =====
-    def get_reminders(self, object_type=None, object_id=None, status=None):
-        """Get reminders filtered by criteria."""
+    def get_reminders(self, object_type=None, object_id=None, status=None, user_email=None, is_admin=False):
+        """Get reminders filtered by criteria and user."""
         df = self._read_df_locked(self.reminders_file)
         if object_type:
             df = df[df["object_type"] == object_type]
@@ -300,11 +309,14 @@ class DataHandler:
             df = df[df["object_id"] == object_id]
         if status:
             df = df[df["status"] == status]
+        if user_email and not is_admin:
+            if "user_email" in df.columns:
+                df = df[df["user_email"] == user_email]
         return df
-    
-    def add_reminder(self, service_id, object_id, object_type, reminder_date, notes=""):
+
+    def add_reminder(self, service_id, object_id, object_type, reminder_date, notes="", 
+                     user_email=None, email_notification=False, notification_time="09:00"):
         """Add a new reminder."""
-        # normalize object_type
         object_type = self.normalize_object_type(object_type)
         df = self._read_df_locked(self.reminders_file)
         reminder_id = f"REM-{len(df) + 1:05d}"
@@ -316,7 +328,11 @@ class DataHandler:
             "reminder_date": reminder_date,
             "status": "Pending",
             "notes": notes,
-            "created_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "created_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "user_email": user_email,
+            "email_notification": email_notification,
+            "notification_time": notification_time,
+            "email_sent": False
         }])
         df = pd.concat([df, new_row], ignore_index=True)
         self._write_df_atomic(self.reminders_file, df)
@@ -346,20 +362,22 @@ class DataHandler:
         return True
     
     # ===== REPORTS MANAGEMENT =====
-    def get_reports(self, object_type=None, object_id=None):
-        """Get reports filtered by criteria."""
+    def get_reports(self, object_type=None, object_id=None, user_email=None, is_admin=False):
+        """Get reports filtered by criteria and user."""
         df = self._read_df_locked(self.reports_file)
         if object_type:
             df = df[df["object_type"] == object_type]
         if object_id:
             df = df[df["object_id"] == object_id]
+        if user_email and not is_admin:
+            if "user_email" in df.columns:
+                df = df[df["user_email"] == user_email]
         return df
-    
+
     def add_report(self, object_id, object_type, report_type, title, 
                   description="", completion_date=None, notes="",
-                  actual_meter_reading=None, meter_unit=None):
+                  actual_meter_reading=None, meter_unit=None, user_email=None):
         """Add a new report."""
-        # normalize object_type
         object_type = self.normalize_object_type(object_type)
         df = self._read_df_locked(self.reports_file)
         report_id = f"REP-{len(df) + 1:05d}"
@@ -374,7 +392,8 @@ class DataHandler:
             "notes": notes,
             "created_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "actual_meter_reading": actual_meter_reading,
-            "meter_unit": meter_unit
+            "meter_unit": meter_unit,
+            "user_email": user_email
         }])
         df = pd.concat([df, new_row], ignore_index=True)
         self._write_df_atomic(self.reports_file, df)
