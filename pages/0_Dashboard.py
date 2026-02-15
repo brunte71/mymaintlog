@@ -14,10 +14,13 @@ st.title("📌 Service Management Dashboard")
 # Overview statistics
 col1, col2, col3, col4 = st.columns(4)
 
+
 objects_df = handler.get_objects()
 services_df = handler.get_services()
 reminders_df = handler.get_reminders()
 reports_df = handler.get_reports()
+fault_reports_df = handler.get_fault_reports()
+
 
 with col1:
     total_objects = len(objects_df)
@@ -32,14 +35,16 @@ with col3:
     st.metric("Pending Reminders", pending_reminders, delta=None, delta_color="inverse")
 
 with col4:
-    total_reports = len(reports_df)
-    st.metric("Total Reports", total_reports)
+    total_faults = len(fault_reports_df)
+    st.metric("Fault Reports", total_faults)
+
+equipment = len(objects_df[objects_df["object_type"] == "Vehicle"])
 
 # Objects by type
 st.write("---")
 st.subheader("Objects Overview")
 
-col1 = st.columns(1)[0]
+col1, col2 = st.columns(2)
 
 equipment = len(objects_df[objects_df["object_type"] == "Vehicle"])
 
@@ -48,27 +53,50 @@ with col1:
     if st.button("View Equipment", key="dash_equipment"):
         st.switch_page("pages/1_Equipment.py")
 
-# Recent services
-st.write("---")
-st.subheader("Recent Services")
+# Fault Reports quick summary
+with col2:
+    st.metric("🚨 Fault Reports", total_faults)
+    if st.button("View Fault Reports", key="dash_fault_reports"):
+        st.switch_page("pages/2_Fault_Reports.py")
 
-if services_df.empty:
-    st.info("No services scheduled yet.")
-else:
-    services_df = services_df.copy()
-    services_df["days_until"] = pd.to_datetime(
-        services_df["next_service_date"]
-    ) - pd.Timestamp.now()
-    services_df["days_until"] = services_df["days_until"].dt.days
-    services_df = services_df.sort_values("days_until")
-    
-    display_cols = ["service_id", "object_id", "service_name", "object_type", 
-                   "next_service_date", "days_until", "status"]
-    st.dataframe(
-        services_df[display_cols].head(10),
-        use_container_width=True,
-        hide_index=True
-    )
+
+# Recent services and recent fault reports
+st.write("---")
+col_recent_services, col_recent_faults = st.columns(2)
+
+with col_recent_services:
+    st.subheader("Recent Services")
+    if services_df.empty:
+        st.info("No services scheduled yet.")
+    else:
+        services_df = services_df.copy()
+        services_df["days_until"] = pd.to_datetime(
+            services_df["next_service_date"]
+        ) - pd.Timestamp.now()
+        services_df["days_until"] = services_df["days_until"].dt.days
+        services_df = services_df.sort_values("days_until")
+        display_cols = ["service_id", "object_id", "service_name", "object_type", 
+                    "next_service_date", "days_until", "status"]
+        st.dataframe(
+            services_df[display_cols].head(10),
+            use_container_width=True,
+            hide_index=True
+        )
+
+with col_recent_faults:
+    st.subheader("Recent Fault Reports")
+    if fault_reports_df.empty:
+        st.info("No fault reports yet.")
+    else:
+        # Show most recent 10 fault reports, with photo count
+        fault_reports_df = fault_reports_df.copy()
+        fault_reports_df["photo_count"] = fault_reports_df["photo_paths"].apply(lambda x: len([p for p in str(x).split(';') if p and p.lower() != 'nan']))
+        display_cols = ["fault_id", "object_id", "object_type", "observation_date", "description", "photo_count", "created_date"]
+        st.dataframe(
+            fault_reports_df[display_cols].sort_values("created_date", ascending=False).head(10),
+            use_container_width=True,
+            hide_index=True
+        )
 
 # Overdue services alert
 st.write("---")

@@ -34,6 +34,14 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# --- Fault Reports Highlight ---
+st.markdown("""
+<div style='background-color:#f9f6e7;padding:1em;border-radius:8px;margin-bottom:1em;'>
+<b>New:</b> <span style='color:#d35400;'>Fault Reports</span> page now supports multiple photos per report, instant updates, and improved photo viewing!<br>
+Easily document faults with images and view all reports in real time.
+</div>
+""", unsafe_allow_html=True)
+
 # Sidebar information
 with st.sidebar:
     st.title("📋 Service Manager")
@@ -44,6 +52,7 @@ with st.sidebar:
     - **Service Planning**: Schedule maintenance and services
     - **Service Reminders**: Track upcoming services
     - **Service Reports**: Document completed services
+    - **Fault Reports**: Log faults with photos and details
     - **Cross-Page Filters**: Seamless data viewing
     - **CSV Storage**: Easy data backup and export
     """)
@@ -58,6 +67,7 @@ with st.sidebar:
     - **Service Planning**: Schedule and manage services
     - **Service Reminders**: Track service reminders
     - **Service Reports**: View and add reports
+    - **Fault Reports**: View and add fault reports
     """)
     
     st.markdown("---")
@@ -88,11 +98,14 @@ Go to **Service Planning** to schedule regular maintenance services for your obj
 ### 3️⃣ Set Reminders
 Create **Service Reminders** to get notifications for upcoming services.
 
-### 4️⃣ Track Reports
+
+### 4️⃣ Track Reports & Faults
 Use **Service Reports** to document completed services and maintenance activities.
+Use **Fault Reports** to log faults, upload multiple photos, and track issues for any equipment.
+
 
 ### 5️⃣ Monitor Dashboard
-The **Dashboard** provides an overview of all objects, services, and alerts.
+The **Dashboard** provides an overview of all objects, services, faults, and alerts.
 
 ---
 
@@ -102,6 +115,8 @@ The **Dashboard** provides an overview of all objects, services, and alerts.
 ✅ **Service Planning** - Schedule maintenance with custom intervals  
 ✅ **Reminder System** - Track upcoming and overdue services  
 ✅ **Reporting** - Document all service activities  
+✅ **Fault Reporting** - Log faults with multiple photos and instant updates  
+✅ **Photo Management** - Attach and view images for faults and reports  
 ✅ **Cross-Page Filters** - Seamless navigation and filtering  
 ✅ **CSV Data Storage** - Portable, easy-to-backup data format  
 ✅ **Status Tracking** - Monitor service status (Active, Inactive, Maintenance)  
@@ -116,6 +131,7 @@ The **Dashboard** provides an overview of all objects, services, and alerts.
 - [Plan Services](Service%20Planning) - Schedule maintenance
 - [Track Reminders](Service%20Reminders) - View upcoming services
 - [View Reports](Service%20Reports) - See service history
+- [View Fault Reports](Fault%20Reports) - Log and review faults with photos
 
 ---
 
