@@ -126,7 +126,7 @@ with st.sidebar:
     - **Service Reports**: Document completed services
     - **Fault Reports**: Log faults with photos and details
     - **Cross-Page Filters**: Seamless data viewing
-    - **CSV Storage**: Easy data backup and export
+    - **SQLite Storage**: Reliable single-file data storage
     """)
     
     st.markdown("---")
@@ -145,11 +145,9 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("""
     ### Data Location
-    All data is stored in CSV files in the `data/` folder:
-    - `objects.csv`: All equipment objects
-    - `services.csv`: Scheduled services
-    - `reminders.csv`: Service reminders
-    - `reports.csv`: Service reports
+    All data is stored in a single SQLite database (`data/mymaintlog.db`):
+    - Equipment, services, reminders, reports, fault reports
+    - Fault photos stored as BLOBs (no separate files needed)
     """)
 
 # Main content
@@ -190,7 +188,7 @@ The **Dashboard** provides an overview of all objects, services, faults, and ale
 ✅ **Fault Reporting** - Log faults with multiple photos and instant updates  
 ✅ **Photo Management** - Attach and view images for faults and reports  
 ✅ **Cross-Page Filters** - Seamless navigation and filtering  
-✅ **CSV Data Storage** - Portable, easy-to-backup data format  
+✅ **SQLite Data Storage** - Single-file database, easy to backup  
 ✅ **Status Tracking** - Monitor service status (Active, Inactive, Maintenance)  
 ✅ **Data Export** - Download data from dashboard  
 
