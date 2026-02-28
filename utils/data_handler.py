@@ -91,6 +91,14 @@ CREATE TABLE IF NOT EXISTS fault_reports (
     created_date         TEXT,
     user_email           TEXT
 );
+CREATE TABLE IF NOT EXISTS fault_photos (
+    photo_id  TEXT PRIMARY KEY,
+    fault_id  TEXT NOT NULL,
+    filename  TEXT,
+    mime_type TEXT DEFAULT 'image/jpeg',
+    data      BLOB NOT NULL,
+    FOREIGN KEY (fault_id) REFERENCES fault_reports(fault_id) ON DELETE CASCADE
+);
 CREATE TABLE IF NOT EXISTS meter_units (
     unit TEXT PRIMARY KEY
 );
@@ -551,12 +559,55 @@ class DataHandler:
         return cur.rowcount > 0
 
     def delete_fault_report(self, fault_id):
-        """Delete a single fault report."""
+        """Delete a single fault report and its associated photos."""
         with self._get_conn() as conn:
+            conn.execute("DELETE FROM fault_photos WHERE fault_id = ?", (fault_id,))
             cur = conn.execute(
                 "DELETE FROM fault_reports WHERE fault_id = ?", (fault_id,)
             )
         return cur.rowcount > 0
+
+    # ------------------------------------------------------------------
+    # Fault photos (BLOB storage)
+    # ------------------------------------------------------------------
+
+    def save_fault_photo(self, fault_id, filename, mime_type, data):
+        """Store a photo BLOB for *fault_id*. Returns the new photo_id."""
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT MAX(CAST(SUBSTR(photo_id, 5) AS INTEGER)) FROM fault_photos"
+            ).fetchone()
+            photo_id = f"PHO-{(row[0] or 0) + 1:05d}"
+            conn.execute(
+                "INSERT INTO fault_photos (photo_id, fault_id, filename, mime_type, data) "
+                "VALUES (?,?,?,?,?)",
+                (photo_id, fault_id, filename, mime_type, data),
+            )
+        return photo_id
+
+    def get_fault_photos(self, fault_id):
+        """Return a list of photo dicts for *fault_id* (photo_id, filename, mime_type, data)."""
+        with self._get_conn() as conn:
+            rows = conn.execute(
+                "SELECT photo_id, filename, mime_type, data FROM fault_photos "
+                "WHERE fault_id = ? ORDER BY photo_id",
+                (fault_id,),
+            ).fetchall()
+        return [
+            {"photo_id": r[0], "filename": r[1], "mime_type": r[2], "data": r[3]}
+            for r in rows
+        ]
+
+    def delete_fault_photo(self, photo_id):
+        """Delete a single fault photo by photo_id."""
+        with self._get_conn() as conn:
+            cur = conn.execute("DELETE FROM fault_photos WHERE photo_id = ?", (photo_id,))
+        return cur.rowcount > 0
+
+    def delete_fault_photos(self, fault_id):
+        """Delete all photos for a fault report."""
+        with self._get_conn() as conn:
+            conn.execute("DELETE FROM fault_photos WHERE fault_id = ?", (fault_id,))
 
     # ------------------------------------------------------------------
     # Admin: delete all records for a user
@@ -566,5 +617,11 @@ class DataHandler:
         """Delete all records belonging to *user_email* across every table."""
         # Table names are hardcoded string literals, not user input – safe to interpolate.
         with self._get_conn() as conn:
+            # Delete photos for all fault reports belonging to this user first.
+            conn.execute(
+                "DELETE FROM fault_photos WHERE fault_id IN "
+                "(SELECT fault_id FROM fault_reports WHERE user_email = ?)",
+                (user_email,),
+            )
             for table in ("objects", "services", "reminders", "reports", "fault_reports"):
                 conn.execute(f"DELETE FROM {table} WHERE user_email = ?", (user_email,))

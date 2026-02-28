@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import os
+from io import BytesIO
 from utils.data_handler import DataHandler
 from utils.state_manager import StateManager
 from datetime import datetime
@@ -46,31 +46,19 @@ with edit_tab:
                 meter_unit = st.selectbox("Meter Unit", handler.get_meter_units(), index=handler.get_meter_units().index(fault["meter_unit"]) if fault["meter_unit"] in handler.get_meter_units() else 0)
                 description = st.text_area("Description", value=fault["description"] if pd.notna(fault["description"]) else "", max_chars=1000)
                 # Photo management
-                photo_paths_val = str(fault['photo_paths']) if pd.notna(fault['photo_paths']) else ''
-                photo_list = [p for p in photo_paths_val.split(';') if p and p.lower() != 'nan']
+                existing_photos = handler.get_fault_photos(selected_fault_id)
                 st.write("**Photos for this Fault Report:**")
-                remove_photos = []
-                for idx, path in enumerate(photo_list):
-                    st.image(path, width=120, caption=f"Photo {idx+1}")
-                    if st.checkbox(f"Remove Photo {idx+1}", key=f"remove_photo_{selected_fault_id}_{idx}"):
-                        remove_photos.append(path)
+                remove_photo_ids = []
+                for photo in existing_photos:
+                    st.image(BytesIO(photo['data']), width=120, caption=photo['filename'])
+                    if st.checkbox(f"Remove {photo['filename']}", key=f"remove_photo_{selected_fault_id}_{photo['photo_id']}"):
+                        remove_photo_ids.append(photo['photo_id'])
                 new_photos = st.file_uploader("Add new photos", accept_multiple_files=True, type=["png", "jpg", "jpeg"], key=f"edit_fault_photos_{selected_fault_id}")
                 col1, col2 = st.columns(2)
                 with col1:
                     submitted = st.form_submit_button("Save Changes")
                 with col2:
                     delete_btn = st.form_submit_button("Delete Fault Report", type="secondary")
-                # Handle photo changes
-                updated_photo_list = [p for p in photo_list if p not in remove_photos]
-                photo_dir = os.path.join("data", "fault_photos")
-                os.makedirs(photo_dir, exist_ok=True)
-                if new_photos:
-                    for file in new_photos:
-                        file_path = os.path.join(photo_dir, f"{datetime.now().strftime('%Y%m%d%H%M%S%f')}_{file.name}")
-                        with open(file_path, "wb") as f:
-                            f.write(file.read())
-                        updated_photo_list.append(file_path)
-                updated_photo_paths = ";".join(updated_photo_list)
             if submitted:
                 handler.update_fault_report(
                     fault_id=selected_fault_id,
@@ -80,8 +68,12 @@ with edit_tab:
                     actual_meter_reading=int(actual_meter_reading),
                     meter_unit=meter_unit,
                     description=description,
-                    photo_paths=updated_photo_paths
                 )
+                for photo_id in remove_photo_ids:
+                    handler.delete_fault_photo(photo_id)
+                if new_photos:
+                    for file in new_photos:
+                        handler.save_fault_photo(selected_fault_id, file.name, file.type or "image/jpeg", file.getvalue())
                 st.success("✓ Fault report updated.")
                 st.rerun()
             if delete_btn:
@@ -113,17 +105,16 @@ with view_tab:
             st.write(f"**Description:** {fault['description']}")
             st.write(f"**Created Date:** {fault['created_date']}")
             # Show preview image and photo viewer
-            photo_paths_val = str(fault['photo_paths']) if pd.notna(fault['photo_paths']) else ''
-            photo_list = [p for p in photo_paths_val.split(';') if p and p.lower() != 'nan']
-            if photo_list:
+            photos = handler.get_fault_photos(selected_fault_id)
+            if photos:
                 st.write("**Photo Preview:**")
                 # Show first photo as preview, clickable
                 if 'show_photo_viewer' not in st.session_state:
                     st.session_state['show_photo_viewer'] = False
                 if st.session_state['show_photo_viewer']:
                     st.write("**Photos Viewer**")
-                    for path in photo_list:
-                        st.image(path, width=400)
+                    for photo in photos:
+                        st.image(BytesIO(photo['data']), width=400, caption=photo['filename'])
                     if st.button("Close Viewer", key="close_photo_viewer_btn"):
                         st.session_state['show_photo_viewer'] = False
                         st.rerun()
@@ -134,8 +125,8 @@ with view_tab:
                             st.session_state['show_photo_viewer'] = True
                             st.rerun()
                     with col_count:
-                        st.markdown(f"**{len(photo_list)} photo{'s' if len(photo_list)!=1 else ''}**")
-                    st.image(photo_list[0], width=120, caption="Click 'Show All Photos' to view")
+                        st.markdown(f"**{len(photos)} photo{'s' if len(photos)!=1 else ''}**")
+                    st.image(BytesIO(photos[0]['data']), width=120, caption="Click 'Show All Photos' to view")
             # Schedule Service button
             if st.button("Schedule Service for this Fault"):
                 StateManager.set_object_id(fault['object_id'])
@@ -210,22 +201,6 @@ with add_tab:
                 uploaded_files = st.file_uploader("Upload Photos", accept_multiple_files=True, type=["png", "jpg", "jpeg"], key="fault_photos")
                 submitted = st.form_submit_button("Add Fault Report")
             if submitted and not obj_list.empty:
-                # Save uploaded files and camera photos
-                photo_paths = []
-                photo_dir = os.path.join("data", "fault_photos")
-                os.makedirs(photo_dir, exist_ok=True)
-                if uploaded_files:
-                    for file in uploaded_files:
-                        file_path = os.path.join(photo_dir, f"{datetime.now().strftime('%Y%m%d%H%M%S%f')}_{file.name}")
-                        with open(file_path, "wb") as f:
-                            f.write(file.read())
-                        photo_paths.append(file_path)
-                # Save all camera images
-                for idx, camera_image in enumerate(st.session_state.get("fault_camera_images", [])):
-                    cam_file_path = os.path.join(photo_dir, f"{datetime.now().strftime('%Y%m%d%H%M%S%f')}_camera_{idx+1}.jpg")
-                    with open(cam_file_path, "wb") as f:
-                        f.write(camera_image.getvalue())
-                    photo_paths.append(cam_file_path)
                 fault_id = handler.add_fault_report(
                     object_id=object_id,
                     object_type=filter_type,
@@ -233,9 +208,15 @@ with add_tab:
                     actual_meter_reading=int(actual_meter_reading),
                     meter_unit=meter_unit,
                     description=description,
-                    photo_paths=photo_paths,
                     user_email=user_email
                 )
+                # Save uploaded photos as SQLite BLOBs
+                if uploaded_files:
+                    for file in uploaded_files:
+                        handler.save_fault_photo(fault_id, file.name, file.type or "image/jpeg", file.getvalue())
+                # Save camera photos as SQLite BLOBs
+                for idx, camera_image in enumerate(st.session_state.get("fault_camera_images", [])):
+                    handler.save_fault_photo(fault_id, f"camera_{idx+1}.jpg", "image/jpeg", camera_image.getvalue())
                 st.success(f"✓ Fault report added successfully! ID: {fault_id}")
                 # Reset only non-widget session state to avoid StreamlitAPIException
                 st.session_state["fault_camera_images"] = []
