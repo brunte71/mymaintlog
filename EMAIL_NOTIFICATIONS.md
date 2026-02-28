@@ -17,7 +17,7 @@ smtp:
   username: "your-email@gmail.com"  # Your email address
   password: "your-app-password"  # Your email password or app-specific password
   from_email: "your-email@gmail.com"  # Email address to send from
-  from_name: "ServiceMgr"  # Display name for the sender
+  from_name: "mymaintlog"  # Display name for the sender
 ```
 
 ### 2. Gmail Setup (If using Gmail)
@@ -93,10 +93,10 @@ template:
     
     Notes: {notes}
     
-    Please log in to ServiceMgr to view more details and complete the service.
+    Please log in to mymaintlog to view more details and complete the service.
     
     Best regards,
-    ServiceMgr
+    mymaintlog
 ```
 
 Available template variables:

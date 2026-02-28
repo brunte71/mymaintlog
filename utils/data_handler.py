@@ -1,4 +1,4 @@
-"""DataHandler – SQLite backend for ServiceMgr.
+"""DataHandler – SQLite backend for mymaintlog.
 
 Replaces the original CSV + filelock implementation.  The public API is
 identical so no page code needs to change, except for two places that
@@ -15,7 +15,14 @@ from datetime import datetime
 DATA_DIR = Path(__file__).parent.parent / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
-DB_PATH = DATA_DIR / "servicemgr.db"
+DB_PATH = DATA_DIR / "mymaintlog.db"
+
+# Backward compatibility: if the new database file doesn't exist yet but the
+# legacy "servicemgr.db" does, keep using the legacy path so existing
+# deployments are not silently reset to an empty database.
+_LEGACY_DB_PATH = DATA_DIR / "servicemgr.db"
+if not DB_PATH.exists() and _LEGACY_DB_PATH.exists():
+    DB_PATH = _LEGACY_DB_PATH
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS objects (

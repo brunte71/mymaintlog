@@ -69,7 +69,7 @@ def migrate_csv(conn: sqlite3.Connection, csv_path: Path, table: str, pk: str):
 
 
 def main():
-    print("ServiceMgr – CSV → SQLite migration")
+    print("mymaintlog – CSV → SQLite migration")
     print("=" * 40)
 
     # Initialise the database (creates tables if needed)
@@ -84,7 +84,7 @@ def main():
 
     print("=" * 40)
     print("Migration complete.  The SQLite database is at:")
-    print(f"  {DATA_DIR / 'servicemgr.db'}")
+    print(f"  {DATA_DIR / 'mymaintlog.db'}")
     print()
     print("You may archive or delete the CSV files once you have verified")
     print("that all data appears correctly in the application.")

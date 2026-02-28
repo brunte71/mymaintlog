@@ -59,7 +59,7 @@ class EmailNotifier:
             
             # Create message
             msg = MIMEMultipart()
-            msg['From'] = f"{smtp_config.get('from_name', 'ServiceMgr')} <{smtp_config['from_email']}>"
+            msg['From'] = f"{smtp_config.get('from_name', 'mymaintlog')} <{smtp_config['from_email']}>"
             msg['To'] = to_email
             msg['Subject'] = subject
             msg.attach(MIMEText(body, 'plain'))

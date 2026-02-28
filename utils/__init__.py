@@ -1,1 +1,1 @@
-# Utils module for Service Manager application
+# Utils module for mymaintlog application

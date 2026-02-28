@@ -1,4 +1,4 @@
-# Service Management Application
+# mymaintlog
 
 A Streamlit-based application for managing vehicle services, maintenance, and tracking.
 
@@ -44,7 +44,7 @@ A Streamlit-based application for managing vehicle services, maintenance, and tr
 ## Project Structure
 
 ```
-servicemgr/
+mymaintlog/
 ├── app.py                      # Main entry point
 ├── requirements.txt            # Python dependencies
 ├── README.md                   # This file
