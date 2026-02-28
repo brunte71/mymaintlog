@@ -1,0 +1,11 @@
+[server]
+# Allow incoming connections from outside localhost (required in containers)
+headless = true
+enableCORS = false
+enableXsrfProtection = true
+# Port – matches Dockerfile EXPOSE and fly.toml internal_port
+port = 8501
+
+[browser]
+# Disable the "deploy to Streamlit Cloud" banner in production
+gatherUsageStats = false

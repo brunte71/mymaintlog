@@ -1,51 +1,36 @@
 #!/usr/bin/env python3
-"""Migration script to canonicalize `object_type` values in data/objects.csv.
+"""Normalise `object_type` values in the ServiceMgr database.
 
-This script makes a backup of the original CSV before writing changes.
+All object_type values written through DataHandler are already normalised
+automatically.  Run this script once after migrating from legacy CSV data
+to clean up any non-canonical values that may have been imported.
 
 Usage:
     python scripts/migrate_object_types.py
 """
-import shutil
-from datetime import datetime
+import sys
 from pathlib import Path
-import pandas as pd
+
+# Allow running from the project root
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from utils.data_handler import DataHandler
 
 
 def main():
     handler = DataHandler()
-    src = handler.objects_file
-    if not src.exists():
-        print(f"No objects file found at {src}")
-        return
-
-    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-    backup = src.parent / f"objects.csv.bak-{ts}"
-    shutil.copy2(src, backup)
-    print(f"Backup created: {backup}")
-
-    df = pd.read_csv(src)
-    if "object_type" not in df.columns:
-        print("No object_type column found; nothing to migrate.")
-        return
-
-    before_values = df["object_type"].astype(str).unique().tolist()
-    df = df.copy()
-    df["object_type"] = df["object_type"].apply(handler.normalize_object_type)
-    after_values = df["object_type"].astype(str).unique().tolist()
-
-    # Write using handler's atomic writer
-    handler._write_df_atomic(src, df)
-
-    changed = set(before_values) - set(after_values)
-    print("Migration complete.")
-    print(f"Unique values before: {before_values}")
-    print(f"Unique values after:  {after_values}")
-    if changed:
-        print(f"Values normalized (removed): {list(changed)}")
-    else:
-        print("No values were changed.")
+    with handler._get_conn() as conn:
+        rows = conn.execute("SELECT object_id, object_type FROM objects").fetchall()
+        changes = 0
+        for object_id, raw_type in rows:
+            canonical = handler.normalize_object_type(raw_type)
+            if raw_type != canonical:
+                conn.execute(
+                    "UPDATE objects SET object_type = ? WHERE object_id = ?",
+                    (canonical, object_id),
+                )
+                changes += 1
+    print(f"Migration complete. {changes} record(s) updated.")
 
 
 if __name__ == "__main__":
