@@ -100,15 +100,7 @@ if selected_user:
                     yaml.safe_dump(config, f)
                 # Remove all user data from app
                 handler = DataHandler()
-                for df, writer, file in [
-                    (handler.get_objects(is_admin=True), handler._write_df_atomic, handler.objects_file),
-                    (handler.get_services(is_admin=True), handler._write_df_atomic, handler.services_file),
-                    (handler.get_reminders(is_admin=True), handler._write_df_atomic, handler.reminders_file),
-                    (handler.get_reports(is_admin=True), handler._write_df_atomic, handler.reports_file),
-                    (handler.get_fault_reports(is_admin=True), handler._write_df_atomic, handler.fault_reports_file)
-                ]:
-                    df = df[df['user_email'] != selected_edit_email]
-                    writer(file, df)
+                handler.delete_user_data(selected_edit_email)
                 st.success(f"User {selected_edit_email} and all their data removed.")
                 st.rerun()
 

@@ -89,17 +89,21 @@ Fly.io allows outbound SMTP.
 ## Option 2 – Streamlit Community Cloud ($0/year)
 
 Streamlit Community Cloud is the easiest way to share a Streamlit app and is
-completely free. However, it uses an **ephemeral filesystem** – all data stored
-in the `data/` folder is lost when the app restarts.
+completely free.
+
+**With the SQLite backend** (now the default) the filesystem is still
+ephemeral, so data is lost on restart unless you pair Community Cloud with a
+free managed PostgreSQL database (Supabase or Neon – see `DATABASE.md`).
+That combination gives you a **completely free, zero-ops production deployment**.
 
 ### When to use this option
-- Demo / showcase purposes only
-- Low-volume use where data loss on restart is acceptable
+- Fully free production deployment when paired with Supabase or Neon PostgreSQL
+- Demo / showcase purposes with the SQLite backend (data resets on restart without an external DB)
 
-### Making data persistent without code changes
-Mount a GitHub repository as the data backend by enabling "commit on write" –
-this keeps data in a private repo branch. This approach is practical only for
-very small datasets.
+### Making data persistent on Community Cloud
+Pair the app with a free managed PostgreSQL database (Supabase or Neon).
+Update `DataHandler` to use a `psycopg2` connection instead of SQLite and store
+the database URL in `.streamlit/secrets.toml`.  See `DATABASE.md` for details.
 
 ### Deployment steps
 1. Push the repository to GitHub (it should already be there).
@@ -108,8 +112,9 @@ very small datasets.
 4. Click **Deploy**.
 
 ### Limitation
-Upload photos (`data/fault_photos/`) are lost on restart. For photo-heavy use,
-Fly.io (Option 1) is strongly preferred.
+Without an external database, uploaded photos (`data/fault_photos/`) and all
+CSV/SQLite data are lost on restart.  For persistent production use, connect
+to Supabase or Neon PostgreSQL as described in `DATABASE.md`.
 
 ---
 
@@ -218,11 +223,14 @@ for several years of fault photos.
 ## Summary Recommendation
 
 > **Use Fly.io** (Option 1) for production. It is the cheapest fully-featured
-> hosting option, requires **no code changes**, and handles persistent CSV
-> storage and photo uploads out of the box. Total annual cost: **$0** within
-> the free tier.
+> hosting option, requires **no code changes**, and handles the SQLite database
+> and photo uploads out of the box. Total annual cost: **$0** within the free tier.
+>
+> **For a completely free, zero-infrastructure deployment** use
+> **Streamlit Community Cloud + Supabase/Neon PostgreSQL** (see `DATABASE.md`).
 >
 > All deployment configuration files are already included in this repository:
 > - `Dockerfile` – container image definition
 > - `fly.toml` – Fly.io app configuration
 > - `.streamlit/config.toml` – Streamlit production settings
+> - `DATABASE.md` – database options and migration guide

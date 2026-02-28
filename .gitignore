@@ -17,6 +17,11 @@ env/
 # filelock temporary files created by data_handler.py (e.g. data/objects.csv.lock)
 data/*.lock
 
+# SQLite database (runtime data – not committed to source control)
+data/*.db
+data/*.db-wal
+data/*.db-shm
+
 # OS artefacts
 .DS_Store
 Thumbs.db

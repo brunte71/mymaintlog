@@ -1,6 +1,5 @@
 streamlit>=1.28.0
 pandas>=2.0.0
 python-dateutil==2.8.2
-filelock==3.12.2
 PyYAML>=6.0
 bcrypt>=4.0.0

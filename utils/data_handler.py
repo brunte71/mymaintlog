@@ -1,71 +1,130 @@
+"""DataHandler – SQLite backend for ServiceMgr.
+
+Replaces the original CSV + filelock implementation.  The public API is
+identical so no page code needs to change, except for two places that
+previously accessed private CSV internals and now use dedicated methods:
+  - delete_fault_report()  (replaces direct _write_df_atomic call in Fault Reports page)
+  - delete_user_data()     (replaces the CSV loop in Admin Panel page)
+"""
+
 import pandas as pd
-import os
-import tempfile
-import shutil
+import sqlite3
 from pathlib import Path
 from datetime import datetime
 
 DATA_DIR = Path(__file__).parent.parent / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
+DB_PATH = DATA_DIR / "servicemgr.db"
+
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS objects (
+    object_id    TEXT PRIMARY KEY,
+    object_type  TEXT NOT NULL,
+    name         TEXT NOT NULL,
+    description  TEXT DEFAULT '',
+    status       TEXT DEFAULT 'Active',
+    created_date TEXT,
+    last_updated TEXT,
+    user_email   TEXT
+);
+CREATE TABLE IF NOT EXISTS services (
+    service_id             TEXT PRIMARY KEY,
+    object_id              TEXT,
+    object_type            TEXT,
+    service_name           TEXT,
+    description            TEXT DEFAULT '',
+    interval_days          INTEGER,
+    last_service_date      TEXT,
+    next_service_date      TEXT,
+    status                 TEXT DEFAULT 'Scheduled',
+    notes                  TEXT DEFAULT '',
+    created_date           TEXT,
+    expected_meter_reading REAL,
+    meter_unit             TEXT,
+    user_email             TEXT
+);
+CREATE TABLE IF NOT EXISTS reminders (
+    reminder_id        TEXT PRIMARY KEY,
+    service_id         TEXT,
+    object_id          TEXT,
+    object_type        TEXT,
+    reminder_date      TEXT,
+    status             TEXT DEFAULT 'Pending',
+    notes              TEXT DEFAULT '',
+    created_date       TEXT,
+    user_email         TEXT,
+    email_notification INTEGER DEFAULT 0,
+    notification_time  TEXT DEFAULT '09:00',
+    email_sent         INTEGER DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS reports (
+    report_id            TEXT PRIMARY KEY,
+    object_id            TEXT,
+    object_type          TEXT,
+    report_type          TEXT,
+    title                TEXT,
+    description          TEXT DEFAULT '',
+    completion_date      TEXT,
+    notes                TEXT DEFAULT '',
+    created_date         TEXT,
+    actual_meter_reading REAL,
+    meter_unit           TEXT,
+    user_email           TEXT
+);
+CREATE TABLE IF NOT EXISTS fault_reports (
+    fault_id             TEXT PRIMARY KEY,
+    object_id            TEXT,
+    object_type          TEXT,
+    observation_date     TEXT,
+    actual_meter_reading REAL,
+    meter_unit           TEXT,
+    description          TEXT,
+    photo_paths          TEXT DEFAULT '',
+    created_date         TEXT,
+    user_email           TEXT
+);
+CREATE TABLE IF NOT EXISTS meter_units (
+    unit TEXT PRIMARY KEY
+);
+"""
+
+# Valid columns per table – used to silently ignore unknown kwargs in
+# update_* methods (same protection the original code had via `if key in df.columns`).
+_TABLE_COLUMNS = {
+    "objects": frozenset([
+        "object_id", "object_type", "name", "description",
+        "status", "created_date", "last_updated", "user_email",
+    ]),
+    "services": frozenset([
+        "service_id", "object_id", "object_type", "service_name",
+        "description", "interval_days", "last_service_date",
+        "next_service_date", "status", "notes", "created_date",
+        "expected_meter_reading", "meter_unit", "user_email",
+    ]),
+    "reminders": frozenset([
+        "reminder_id", "service_id", "object_id", "object_type",
+        "reminder_date", "status", "notes", "created_date",
+        "user_email", "email_notification", "notification_time", "email_sent",
+    ]),
+    "reports": frozenset([
+        "report_id", "object_id", "object_type", "report_type",
+        "title", "description", "completion_date", "notes",
+        "created_date", "actual_meter_reading", "meter_unit", "user_email",
+    ]),
+    "fault_reports": frozenset([
+        "fault_id", "object_id", "object_type", "observation_date",
+        "actual_meter_reading", "meter_unit", "description",
+        "photo_paths", "created_date", "user_email",
+    ]),
+}
+
+
 class DataHandler:
+    """Handle SQLite data storage and retrieval for service management."""
 
-    """Handle CSV data storage and retrieval for service management."""
     OBJECT_TYPES = ["Vehicle", "Facility", "Other"]
-    # ...existing code...
 
-    def update_fault_report(self, fault_id, **kwargs):
-        """Update a fault report by fault_id. kwargs keys must match column names."""
-        df = self._read_df_locked(self.fault_reports_file)
-        mask = df["fault_id"] == fault_id
-        if mask.any():
-            for key, value in kwargs.items():
-                if key in df.columns:
-                    df.loc[mask, key] = value
-            self._write_df_atomic(self.fault_reports_file, df)
-            return True
-        return False
-
-    def _initialize_files(self):
-        # ...existing code...
-        # Fault Reports CSV
-        self.fault_reports_file = DATA_DIR / "fault_reports.csv"
-        if not self.fault_reports_file.exists():
-            fault_reports_df = pd.DataFrame(columns=[
-                "fault_id", "object_id", "object_type", "observation_date", "actual_meter_reading", "meter_unit", "description", "photo_paths", "created_date"
-            ])
-            self._write_df_atomic(self.fault_reports_file, fault_reports_df)
-
-    def get_fault_reports(self, object_type=None, object_id=None, user_email=None, is_admin=False):
-        df = self._read_df_locked(self.fault_reports_file)
-        if object_type:
-            df = df[df["object_type"] == object_type]
-        if object_id:
-            df = df[df["object_id"] == object_id]
-        if user_email and not is_admin:
-            if "user_email" in df.columns:
-                df = df[df["user_email"] == user_email]
-        return df
-
-    def add_fault_report(self, object_id, object_type, observation_date, actual_meter_reading, meter_unit, description, photo_paths=None, user_email=None):
-        df = self._read_df_locked(self.fault_reports_file)
-        fault_id = f"FLT-{len(df) + 1:05d}"
-        new_row = pd.DataFrame([{
-            "fault_id": fault_id,
-            "object_id": object_id,
-            "object_type": object_type,
-            "observation_date": observation_date,
-            "actual_meter_reading": actual_meter_reading,
-            "meter_unit": meter_unit,
-            "description": description,
-            "photo_paths": ";".join(photo_paths) if photo_paths else "",
-            "created_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "user_email": user_email
-        }])
-        df = pd.concat([df, new_row], ignore_index=True)
-        self._write_df_atomic(self.fault_reports_file, df)
-        return fault_id
-    # ...existing code...
     # Mapping of common variants to canonical object_type values
     _OBJECT_TYPE_CANON = {
         "vehicle": "Vehicle",
@@ -77,424 +136,428 @@ class DataHandler:
         "other": "Other",
         "equipment": "Other",
     }
-    
-    def __init__(self):
-        self.objects_file = DATA_DIR / "objects.csv"
-        self.services_file = DATA_DIR / "services.csv"
-        self.reminders_file = DATA_DIR / "reminders.csv"
-        self.reports_file = DATA_DIR / "reports.csv"
-        self.fault_reports_file = DATA_DIR / "fault_reports.csv"
-        self._initialize_files()
-        try:
-            from filelock import FileLock
-            self._FileLock = FileLock
-        except Exception:
-            self._FileLock = None
-    
 
-    def _initialize_files(self):
-        """Initialize CSV files if they don't exist, with user_email column for user management."""
-        # Objects CSV
-        if not self.objects_file.exists():
-            objects_df = pd.DataFrame(columns=[
-                "object_id", "object_type", "name", "description", 
-                "status", "created_date", "last_updated", "user_email"
-            ])
-            self._write_df_atomic(self.objects_file, objects_df)
-        # Services CSV
-        if not self.services_file.exists():
-            services_df = pd.DataFrame(columns=[
-                "service_id", "object_id", "object_type", "service_name", 
-                "description", "interval_days", "last_service_date", 
-                "next_service_date", "status", "notes", "created_date",
-                "expected_meter_reading", "meter_unit", "user_email"
-            ])
-            self._write_df_atomic(self.services_file, services_df)
-        # Reminders CSV
-        if not self.reminders_file.exists():
-            reminders_df = pd.DataFrame(columns=[
-                "reminder_id", "service_id", "object_id", "object_type",
-                "reminder_date", "status", "notes", "created_date", "user_email"
-            ])
-            self._write_df_atomic(self.reminders_file, reminders_df)
-        # Reports CSV
-        if not self.reports_file.exists():
-            reports_df = pd.DataFrame(columns=[
-                "report_id", "object_id", "object_type", "report_type",
-                "title", "description", "completion_date", "notes", "created_date",
-                "actual_meter_reading", "meter_unit", "user_email"
-            ])
-            self._write_df_atomic(self.reports_file, reports_df)
-        # Fault Reports CSV
-        self.fault_reports_file = DATA_DIR / "fault_reports.csv"
-        if not self.fault_reports_file.exists():
-            fault_reports_df = pd.DataFrame(columns=[
-                "fault_id", "object_id", "object_type", "observation_date", "actual_meter_reading", "meter_unit", "description", "photo_paths", "created_date", "user_email"
-            ])
-            self._write_df_atomic(self.fault_reports_file, fault_reports_df)
-        # Meter units list file
-        self.meter_units_file = DATA_DIR / "meter_units.csv"
-        if not self.meter_units_file.exists():
-            mu_df = pd.DataFrame({"unit": ["km", "kWh"]})
-            self._write_df_atomic(self.meter_units_file, mu_df)
-    
-    # ===== OBJECTS MANAGEMENT =====
+    def __init__(self, db_path=None):
+        self._db_path = db_path or str(DB_PATH)
+        self._initialize_db()
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _get_conn(self):
+        """Open a connection with WAL mode for safe concurrent access.
+
+        check_same_thread=False is required because Streamlit may call
+        DataHandler methods from a different thread than the one that
+        constructed the object.  Each method call creates its own
+        connection (opened and closed via the context manager), so no
+        single Connection object is ever shared between threads.
+        """
+        conn = sqlite3.connect(self._db_path, timeout=30, check_same_thread=False)
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA synchronous  = NORMAL")
+        conn.execute("PRAGMA foreign_keys = ON")
+        return conn
+
+    def _initialize_db(self):
+        """Create tables and seed meter_units on first run."""
+        with self._get_conn() as conn:
+            conn.executescript(_SCHEMA)
+            if not conn.execute("SELECT 1 FROM meter_units LIMIT 1").fetchone():
+                conn.executemany(
+                    "INSERT OR IGNORE INTO meter_units (unit) VALUES (?)",
+                    [("km",), ("kWh",)],
+                )
+
+    @staticmethod
+    def _where(clauses):
+        return ("WHERE " + " AND ".join(clauses)) if clauses else ""
+
+    def _norm_df(self, df):
+        """Return a copy of *df* with object_type column normalised."""
+        if "object_type" in df.columns and not df.empty:
+            df = df.copy()
+            df["object_type"] = df["object_type"].apply(self.normalize_object_type)
+        return df
+
+    def normalize_object_type(self, value):
+        """Normalise a raw object_type value to its canonical form."""
+        if value is None:
+            return value
+        v = str(value).strip()
+        return self._OBJECT_TYPE_CANON.get(v.lower(), v)
+
+    # ------------------------------------------------------------------
+    # Objects
+    # ------------------------------------------------------------------
+
     def get_objects(self, object_type=None, user_email=None, is_admin=False):
         """Get all objects or filtered by type and user."""
-        df = self._read_df_locked(self.objects_file)
+        clauses, params = [], []
         if object_type:
-            df = df[df["object_type"] == object_type]
+            clauses.append("object_type = ?")
+            params.append(self.normalize_object_type(object_type))
         if user_email and not is_admin:
-            if "user_email" in df.columns:
-                df = df[df["user_email"] == user_email]
-        return df
+            clauses.append("user_email = ?")
+            params.append(user_email)
+        sql = f"SELECT * FROM objects {self._where(clauses)}"
+        with self._get_conn() as conn:
+            df = pd.read_sql_query(sql, conn, params=params)
+        return self._norm_df(df)
 
     def add_object(self, object_type, name, description="", status="Active", user_email=None):
         """Add a new object."""
         object_type = self.normalize_object_type(object_type)
-        df = self._read_df_locked(self.objects_file)
         prefix = str(object_type)[:3].upper()
-        existing = df[df["object_type"] == object_type]
-        next_index = 1
-        if not existing.empty and "object_id" in existing.columns:
-            import re
-            nums = []
-            for oid in existing["object_id"].dropna().astype(str).tolist():
-                m = re.search(r"-(\d+)$", oid)
-                if m:
-                    try:
-                        nums.append(int(m.group(1)))
-                    except Exception:
-                        pass
-            if nums:
-                next_index = max(nums) + 1
-        object_id = f"{prefix}-{next_index:04d}"
-        new_row = pd.DataFrame([{
-            "object_id": object_id,
-            "object_type": object_type,
-            "name": name,
-            "description": description,
-            "status": status,
-            "created_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "user_email": user_email
-        }])
-        df = pd.concat([df, new_row], ignore_index=True)
-        self._write_df_atomic(self.objects_file, df)
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT MAX(CAST(SUBSTR(object_id, 5) AS INTEGER)) "
+                "FROM objects WHERE object_type = ?",
+                (object_type,),
+            ).fetchone()
+            object_id = f"{prefix}-{(row[0] or 0) + 1:04d}"
+            conn.execute(
+                "INSERT INTO objects VALUES (?,?,?,?,?,?,?,?)",
+                (object_id, object_type, name, description, status, now, now, user_email),
+            )
         return object_id
-    
+
     def update_object(self, object_id, **kwargs):
         """Update an object."""
-        df = self._read_df_locked(self.objects_file)
-        mask = df["object_id"] == object_id
-        if mask.any():
-            for key, value in kwargs.items():
-                if key in df.columns:
-                    if key == "object_type":
-                        value = self.normalize_object_type(value)
-                    df.loc[mask, key] = value
-            df.loc[mask, "last_updated"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            self._write_df_atomic(self.objects_file, df)
-            return True
-        return False
-    
+        # Column names are validated against the known-column frozenset before
+        # being interpolated into SQL, so f-string interpolation is safe here.
+        valid = _TABLE_COLUMNS["objects"]
+        sets, params = [], []
+        for key, value in kwargs.items():
+            if key not in valid:
+                continue
+            if key == "object_type":
+                value = self.normalize_object_type(value)
+            sets.append(f"{key} = ?")
+            params.append(value)
+        if not sets:
+            return False
+        sets.append("last_updated = ?")
+        params.append(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        params.append(object_id)
+        with self._get_conn() as conn:
+            cur = conn.execute(
+                f"UPDATE objects SET {', '.join(sets)} WHERE object_id = ?", params
+            )
+        return cur.rowcount > 0
+
     def delete_object(self, object_id):
         """Delete an object."""
-        df = self._read_df_locked(self.objects_file)
-        df = df[df["object_id"] != object_id]
-        self._write_df_atomic(self.objects_file, df)
-    
-    # ===== SERVICES MANAGEMENT =====
+        with self._get_conn() as conn:
+            conn.execute("DELETE FROM objects WHERE object_id = ?", (object_id,))
+
+    # ------------------------------------------------------------------
+    # Services
+    # ------------------------------------------------------------------
+
     def get_services(self, object_type=None, object_id=None, user_email=None, is_admin=False):
         """Get services filtered by type, object, and user."""
-        df = self._read_df_locked(self.services_file)
+        clauses, params = [], []
         if object_type:
-            df = df[df["object_type"] == object_type]
+            clauses.append("object_type = ?")
+            params.append(self.normalize_object_type(object_type))
         if object_id:
-            df = df[df["object_id"] == object_id]
+            clauses.append("object_id = ?")
+            params.append(object_id)
         if user_email and not is_admin:
-            if "user_email" in df.columns:
-                df = df[df["user_email"] == user_email]
-        return df
+            clauses.append("user_email = ?")
+            params.append(user_email)
+        sql = f"SELECT * FROM services {self._where(clauses)}"
+        with self._get_conn() as conn:
+            df = pd.read_sql_query(sql, conn, params=params)
+        return self._norm_df(df)
 
-    def add_service(self, object_id, object_type, service_name, interval_days, 
-                   description="", status="Scheduled", notes="",
-                   expected_meter_reading=None, meter_unit=None, user_email=None):
+    def add_service(self, object_id, object_type, service_name, interval_days,
+                    description="", status="Scheduled", notes="",
+                    expected_meter_reading=None, meter_unit=None, user_email=None):
         """Add a new service."""
         object_type = self.normalize_object_type(object_type)
-        df = self._read_df_locked(self.services_file)
-        service_id = f"SVC-{len(df) + 1:05d}"
-        new_row = pd.DataFrame([{
-            "service_id": service_id,
-            "object_id": object_id,
-            "object_type": object_type,
-            "service_name": service_name,
-            "description": description,
-            "interval_days": interval_days,
-            "last_service_date": None,
-            "next_service_date": datetime.now().strftime("%Y-%m-%d"),
-            "status": status,
-            "notes": notes,
-            "created_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "expected_meter_reading": expected_meter_reading,
-            "meter_unit": meter_unit,
-            "user_email": user_email
-        }])
-        df = pd.concat([df, new_row], ignore_index=True)
-        self._write_df_atomic(self.services_file, df)
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        today = datetime.now().strftime("%Y-%m-%d")
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT MAX(CAST(SUBSTR(service_id, 5) AS INTEGER)) FROM services"
+            ).fetchone()
+            service_id = f"SVC-{(row[0] or 0) + 1:05d}"
+            conn.execute(
+                "INSERT INTO services VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (service_id, object_id, object_type, service_name, description,
+                 interval_days, None, today, status, notes, now,
+                 expected_meter_reading, meter_unit, user_email),
+            )
         return service_id
-    
+
     def update_service(self, service_id, **kwargs):
         """Update a service."""
-        df = self._read_df_locked(self.services_file)
-        mask = df["service_id"] == service_id
-        if mask.any():
-            for key, value in kwargs.items():
-                if key in df.columns:
-                    if key == "object_type":
-                        value = self.normalize_object_type(value)
-                    df.loc[mask, key] = value
-            self._write_df_atomic(self.services_file, df)
-            return True
-        return False
+        valid = _TABLE_COLUMNS["services"]
+        sets, params = [], []
+        for key, value in kwargs.items():
+            if key not in valid:
+                continue
+            if key == "object_type":
+                value = self.normalize_object_type(value)
+            sets.append(f"{key} = ?")
+            params.append(value)
+        if not sets:
+            return False
+        params.append(service_id)
+        with self._get_conn() as conn:
+            cur = conn.execute(
+                f"UPDATE services SET {', '.join(sets)} WHERE service_id = ?", params
+            )
+        return cur.rowcount > 0
 
-    # ===== METER UNIT MANAGEMENT =====
+    def delete_service(self, service_id):
+        """Delete a service."""
+        with self._get_conn() as conn:
+            conn.execute("DELETE FROM services WHERE service_id = ?", (service_id,))
+
+    # ------------------------------------------------------------------
+    # Meter units
+    # ------------------------------------------------------------------
+
     def get_meter_units(self):
         """Return list of configured meter units."""
-        if not hasattr(self, 'meter_units_file'):
-            self.meter_units_file = DATA_DIR / "meter_units.csv"
-        if not self.meter_units_file.exists():
-            return ["km", "kWh"]
-        df = pd.read_csv(self.meter_units_file)
-        if 'unit' in df.columns:
-            return df['unit'].dropna().astype(str).tolist()
-        return []
+        with self._get_conn() as conn:
+            rows = conn.execute("SELECT unit FROM meter_units ORDER BY unit").fetchall()
+        return [r[0] for r in rows]
 
     def add_meter_unit(self, unit):
         """Add a new meter unit if not present."""
         unit = str(unit).strip()
         if not unit:
             return False
-        units = self.get_meter_units()
-        if unit in units:
+        try:
+            with self._get_conn() as conn:
+                conn.execute("INSERT INTO meter_units (unit) VALUES (?)", (unit,))
+            return True
+        except sqlite3.IntegrityError:
             return False
-        units.append(unit)
-        df = pd.DataFrame({"unit": units})
-        self._write_df_atomic(self.meter_units_file, df)
-        return True
 
     def delete_meter_unit(self, unit):
         """Delete a meter unit if it exists."""
-        units = self.get_meter_units()
-        if unit not in units:
-            return False
-        units = [u for u in units if u != unit]
-        df = pd.DataFrame({"unit": units})
-        self._write_df_atomic(self.meter_units_file, df)
-        return True
-    
-    def delete_service(self, service_id):
-        """Delete a service."""
-        df = self._read_df_locked(self.services_file)
-        df = df[df["service_id"] != service_id]
-        self._write_df_atomic(self.services_file, df)
-    
-    # ===== REMINDERS MANAGEMENT =====
-    def get_reminders(self, object_type=None, object_id=None, status=None, user_email=None, is_admin=False):
-        """Get reminders filtered by criteria and user."""
-        df = self._read_df_locked(self.reminders_file)
-        if object_type:
-            df = df[df["object_type"] == object_type]
-        if object_id:
-            df = df[df["object_id"] == object_id]
-        if status:
-            df = df[df["status"] == status]
-        if user_email and not is_admin:
-            if "user_email" in df.columns:
-                df = df[df["user_email"] == user_email]
-        return df
+        with self._get_conn() as conn:
+            cur = conn.execute("DELETE FROM meter_units WHERE unit = ?", (unit,))
+        return cur.rowcount > 0
 
-    def add_reminder(self, service_id, object_id, object_type, reminder_date, notes="", 
+    # ------------------------------------------------------------------
+    # Reminders
+    # ------------------------------------------------------------------
+
+    def get_reminders(self, object_type=None, object_id=None, status=None,
+                      user_email=None, is_admin=False):
+        """Get reminders filtered by criteria and user."""
+        clauses, params = [], []
+        if object_type:
+            clauses.append("object_type = ?")
+            params.append(self.normalize_object_type(object_type))
+        if object_id:
+            clauses.append("object_id = ?")
+            params.append(object_id)
+        if status:
+            clauses.append("status = ?")
+            params.append(status)
+        if user_email and not is_admin:
+            clauses.append("user_email = ?")
+            params.append(user_email)
+        sql = f"SELECT * FROM reminders {self._where(clauses)}"
+        with self._get_conn() as conn:
+            df = pd.read_sql_query(sql, conn, params=params)
+        return self._norm_df(df)
+
+    def add_reminder(self, service_id, object_id, object_type, reminder_date, notes="",
                      user_email=None, email_notification=False, notification_time="09:00"):
         """Add a new reminder."""
         object_type = self.normalize_object_type(object_type)
-        df = self._read_df_locked(self.reminders_file)
-        reminder_id = f"REM-{len(df) + 1:05d}"
-        new_row = pd.DataFrame([{
-            "reminder_id": reminder_id,
-            "service_id": service_id,
-            "object_id": object_id,
-            "object_type": object_type,
-            "reminder_date": reminder_date,
-            "status": "Pending",
-            "notes": notes,
-            "created_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "user_email": user_email,
-            "email_notification": email_notification,
-            "notification_time": notification_time,
-            "email_sent": False
-        }])
-        df = pd.concat([df, new_row], ignore_index=True)
-        self._write_df_atomic(self.reminders_file, df)
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT MAX(CAST(SUBSTR(reminder_id, 5) AS INTEGER)) FROM reminders"
+            ).fetchone()
+            reminder_id = f"REM-{(row[0] or 0) + 1:05d}"
+            conn.execute(
+                "INSERT INTO reminders VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                (reminder_id, service_id, object_id, object_type, reminder_date,
+                 "Pending", notes, now, user_email,
+                 1 if email_notification else 0, notification_time, 0),
+            )
         return reminder_id
-    
+
     def update_reminder(self, reminder_id, **kwargs):
         """Update a reminder."""
-        df = self._read_df_locked(self.reminders_file)
-        mask = df["reminder_id"] == reminder_id
-        if mask.any():
-            for key, value in kwargs.items():
-                if key in df.columns:
-                    if key == "object_type":
-                        value = self.normalize_object_type(value)
-                    df.loc[mask, key] = value
-            self._write_df_atomic(self.reminders_file, df)
-            return True
-        return False
+        valid = _TABLE_COLUMNS["reminders"]
+        sets, params = [], []
+        for key, value in kwargs.items():
+            if key not in valid:
+                continue
+            if key == "object_type":
+                value = self.normalize_object_type(value)
+            sets.append(f"{key} = ?")
+            params.append(value)
+        if not sets:
+            return False
+        params.append(reminder_id)
+        with self._get_conn() as conn:
+            cur = conn.execute(
+                f"UPDATE reminders SET {', '.join(sets)} WHERE reminder_id = ?", params
+            )
+        return cur.rowcount > 0
 
     def delete_reminder(self, reminder_id):
-        """Delete a reminder safely using the locked atomic writer."""
-        df = self._read_df_locked(self.reminders_file)
-        if df.empty:
-            return False
-        df = df[df["reminder_id"] != reminder_id]
-        self._write_df_atomic(self.reminders_file, df)
-        return True
-    
-    # ===== REPORTS MANAGEMENT =====
+        """Delete a reminder."""
+        with self._get_conn() as conn:
+            cur = conn.execute(
+                "DELETE FROM reminders WHERE reminder_id = ?", (reminder_id,)
+            )
+        return cur.rowcount > 0
+
+    # ------------------------------------------------------------------
+    # Reports
+    # ------------------------------------------------------------------
+
     def get_reports(self, object_type=None, object_id=None, user_email=None, is_admin=False):
         """Get reports filtered by criteria and user."""
-        df = self._read_df_locked(self.reports_file)
+        clauses, params = [], []
         if object_type:
-            df = df[df["object_type"] == object_type]
+            clauses.append("object_type = ?")
+            params.append(self.normalize_object_type(object_type))
         if object_id:
-            df = df[df["object_id"] == object_id]
+            clauses.append("object_id = ?")
+            params.append(object_id)
         if user_email and not is_admin:
-            if "user_email" in df.columns:
-                df = df[df["user_email"] == user_email]
-        return df
+            clauses.append("user_email = ?")
+            params.append(user_email)
+        sql = f"SELECT * FROM reports {self._where(clauses)}"
+        with self._get_conn() as conn:
+            df = pd.read_sql_query(sql, conn, params=params)
+        return self._norm_df(df)
 
-    def add_report(self, object_id, object_type, report_type, title, 
-                  description="", completion_date=None, notes="",
-                  actual_meter_reading=None, meter_unit=None, user_email=None):
+    def add_report(self, object_id, object_type, report_type, title,
+                   description="", completion_date=None, notes="",
+                   actual_meter_reading=None, meter_unit=None, user_email=None):
         """Add a new report."""
         object_type = self.normalize_object_type(object_type)
-        df = self._read_df_locked(self.reports_file)
-        report_id = f"REP-{len(df) + 1:05d}"
-        new_row = pd.DataFrame([{
-            "report_id": report_id,
-            "object_id": object_id,
-            "object_type": object_type,
-            "report_type": report_type,
-            "title": title,
-            "description": description,
-            "completion_date": completion_date or datetime.now().strftime("%Y-%m-%d"),
-            "notes": notes,
-            "created_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "actual_meter_reading": actual_meter_reading,
-            "meter_unit": meter_unit,
-            "user_email": user_email
-        }])
-        df = pd.concat([df, new_row], ignore_index=True)
-        self._write_df_atomic(self.reports_file, df)
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT MAX(CAST(SUBSTR(report_id, 5) AS INTEGER)) FROM reports"
+            ).fetchone()
+            report_id = f"REP-{(row[0] or 0) + 1:05d}"
+            conn.execute(
+                "INSERT INTO reports VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                (report_id, object_id, object_type, report_type, title, description,
+                 completion_date or datetime.now().strftime("%Y-%m-%d"),
+                 notes, now, actual_meter_reading, meter_unit, user_email),
+            )
         return report_id
-    
+
     def update_report(self, report_id, **kwargs):
         """Update a report."""
-        df = self._read_df_locked(self.reports_file)
-        mask = df["report_id"] == report_id
-        if mask.any():
-            for key, value in kwargs.items():
-                if key in df.columns:
-                    if key == "object_type":
-                        value = self.normalize_object_type(value)
-                    df.loc[mask, key] = value
-            self._write_df_atomic(self.reports_file, df)
+        valid = _TABLE_COLUMNS["reports"]
+        sets, params = [], []
+        for key, value in kwargs.items():
+            if key not in valid:
+                continue
+            if key == "object_type":
+                value = self.normalize_object_type(value)
+            sets.append(f"{key} = ?")
+            params.append(value)
+        if not sets:
+            return False
+        params.append(report_id)
+        with self._get_conn() as conn:
+            cur = conn.execute(
+                f"UPDATE reports SET {', '.join(sets)} WHERE report_id = ?", params
+            )
+        return cur.rowcount > 0
 
-    def _get_lock(self, target_path: Path):
-        if self._FileLock:
-            return self._FileLock(str(target_path) + ".lock")
-        # Fallback dummy lock
-        class _DummyLock:
-            def __enter__(self):
-                return None
-            def __exit__(self, exc_type, exc, tb):
-                return False
-        return _DummyLock()
-
-    def normalize_object_type(self, value):
-        """Normalize a raw object_type value to a canonical one.
-
-        Returns the canonical string if recognized, otherwise returns the
-        input unchanged.
-        """
-        if value is None:
-            return value
-        v = str(value).strip()
-        key = v.lower()
-        return self._OBJECT_TYPE_CANON.get(key, v)
-
-    def _read_df_locked(self, target_path: Path):
-        """Read a CSV under a file lock. Returns empty DataFrame if missing."""
-        if not target_path.exists():
-            return pd.DataFrame()
-        with self._get_lock(target_path):
-            df = pd.read_csv(target_path)
-            # Normalize object_type values on read to canonical forms
-            if "object_type" in df.columns:
-                df = df.copy()
-                df["object_type"] = df["object_type"].apply(self.normalize_object_type)
-            return df
-    def _write_df_atomic(self, target_path: Path, df):
-        """Write a DataFrame atomically to `target_path`.
-
-        This writes to a temp file on the same filesystem and then replaces
-        the target, minimizing the risk of data loss if the process is
-        interrupted. It also attempts to fsync the file and directory.
-        """
-        target_dir = target_path.parent
-        target_dir.mkdir(parents=True, exist_ok=True)
-
-        # Create temp file in same directory to ensure os.replace is atomic
-        fd, tmp_path = tempfile.mkstemp(prefix=".tmp-", dir=str(target_dir))
-        os.close(fd)
-        try:
-            # Use pandas to write to the temporary path
-            df.to_csv(tmp_path, index=False)
-
-            # Ensure data is flushed to disk
-            with open(tmp_path, "rb+") as f:
-                f.flush()
-                os.fsync(f.fileno())
-
-            # Atomically replace
-            os.replace(tmp_path, str(target_path))
-
-            # Try to fsync the directory to ensure the rename is persisted
-            try:
-                dir_fd = os.open(str(target_dir), os.O_DIRECTORY)
-                try:
-                    os.fsync(dir_fd)
-                finally:
-                    os.close(dir_fd)
-            except Exception:
-                # Not critical; continue
-                pass
-        finally:
-            # Cleanup temp if it still exists
-            try:
-                if os.path.exists(tmp_path):
-                    os.remove(tmp_path)
-            except Exception:
-                pass
-            return True
-        return False
-    
     def delete_report(self, report_id):
         """Delete a report."""
-        df = self._read_df_locked(self.reports_file)
-        if df.empty:
+        with self._get_conn() as conn:
+            cur = conn.execute("DELETE FROM reports WHERE report_id = ?", (report_id,))
+        return cur.rowcount > 0
+
+    # ------------------------------------------------------------------
+    # Fault reports
+    # ------------------------------------------------------------------
+
+    def get_fault_reports(self, object_type=None, object_id=None, user_email=None, is_admin=False):
+        clauses, params = [], []
+        if object_type:
+            clauses.append("object_type = ?")
+            params.append(self.normalize_object_type(object_type))
+        if object_id:
+            clauses.append("object_id = ?")
+            params.append(object_id)
+        if user_email and not is_admin:
+            clauses.append("user_email = ?")
+            params.append(user_email)
+        sql = f"SELECT * FROM fault_reports {self._where(clauses)}"
+        with self._get_conn() as conn:
+            df = pd.read_sql_query(sql, conn, params=params)
+        return self._norm_df(df)
+
+    def add_fault_report(self, object_id, object_type, observation_date,
+                         actual_meter_reading, meter_unit, description,
+                         photo_paths=None, user_email=None):
+        object_type = self.normalize_object_type(object_type)
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT MAX(CAST(SUBSTR(fault_id, 5) AS INTEGER)) FROM fault_reports"
+            ).fetchone()
+            fault_id = f"FLT-{(row[0] or 0) + 1:05d}"
+            conn.execute(
+                "INSERT INTO fault_reports VALUES (?,?,?,?,?,?,?,?,?,?)",
+                (fault_id, object_id, object_type, observation_date,
+                 actual_meter_reading, meter_unit, description,
+                 ";".join(photo_paths) if photo_paths else "",
+                 now, user_email),
+            )
+        return fault_id
+
+    def update_fault_report(self, fault_id, **kwargs):
+        """Update a fault report by fault_id. kwargs keys must match column names."""
+        valid = _TABLE_COLUMNS["fault_reports"]
+        sets, params = [], []
+        for key, value in kwargs.items():
+            if key not in valid:
+                continue
+            if key == "object_type":
+                value = self.normalize_object_type(value)
+            sets.append(f"{key} = ?")
+            params.append(value)
+        if not sets:
             return False
-        df = df[df["report_id"] != report_id]
-        self._write_df_atomic(self.reports_file, df)
-        return True
+        params.append(fault_id)
+        with self._get_conn() as conn:
+            cur = conn.execute(
+                f"UPDATE fault_reports SET {', '.join(sets)} WHERE fault_id = ?", params
+            )
+        return cur.rowcount > 0
+
+    def delete_fault_report(self, fault_id):
+        """Delete a single fault report."""
+        with self._get_conn() as conn:
+            cur = conn.execute(
+                "DELETE FROM fault_reports WHERE fault_id = ?", (fault_id,)
+            )
+        return cur.rowcount > 0
+
+    # ------------------------------------------------------------------
+    # Admin: delete all records for a user
+    # ------------------------------------------------------------------
+
+    def delete_user_data(self, user_email):
+        """Delete all records belonging to *user_email* across every table."""
+        # Table names are hardcoded string literals, not user input – safe to interpolate.
+        with self._get_conn() as conn:
+            for table in ("objects", "services", "reminders", "reports", "fault_reports"):
+                conn.execute(f"DELETE FROM {table} WHERE user_email = ?", (user_email,))

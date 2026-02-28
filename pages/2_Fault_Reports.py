@@ -85,9 +85,7 @@ with edit_tab:
                 st.success("✓ Fault report updated.")
                 st.rerun()
             if delete_btn:
-                df = handler.get_fault_reports()
-                df = df[df["fault_id"] != selected_fault_id]
-                handler._write_df_atomic(handler.fault_reports_file, df)
+                handler.delete_fault_report(selected_fault_id)
                 st.success("✓ Fault report deleted.")
                 st.rerun()
 
