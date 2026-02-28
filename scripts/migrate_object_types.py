@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Normalise `object_type` values in the ServiceMgr database.
+"""Normalise `object_type` values in the mymaintlog database.
 
 All object_type values written through DataHandler are already normalised
 automatically.  Run this script once after migrating from legacy CSV data

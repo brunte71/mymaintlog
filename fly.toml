@@ -1,4 +1,4 @@
-# fly.toml – Fly.io deployment configuration for ServiceMgr
+# fly.toml – Fly.io deployment configuration for mymaintlog
 # Docs: https://fly.io/docs/reference/configuration/
 #
 # This configuration targets up to ~20 concurrent users ($0/month, free tier).
@@ -18,7 +18,7 @@
 #   Persistent volume      $0.15/GB/month (first 3 GB free per org)
 #   Outbound bandwidth     $0.02/GB       (first 160 GB/month free per org)
 
-app = "servicemgr"          # Change to your unique Fly.io app name
+app = "mymaintlog"          # Change to your unique Fly.io app name
 primary_region = "ams"      # Amsterdam – pick the region closest to your users
 
 [build]
@@ -27,7 +27,7 @@ primary_region = "ams"      # Amsterdam – pick the region closest to your user
 # The persistent volume is mounted at /app/data so the SQLite database and
 # uploaded photos survive container restarts and re-deployments.
 [mounts]
-  source      = "servicemgr_data"   # volume name (created once with `fly volumes create`)
+  source      = "mymaintlog_data"    # volume name (created once with `fly volumes create`)
   destination = "/app/data"
 
 [http_service]

@@ -1,4 +1,4 @@
-# Cloud Hosting Recommendations for ServiceMgr
+# Cloud Hosting Recommendations for mymaintlog
 
 ## Project Size Overview
 
@@ -44,7 +44,7 @@ Fly.io offers a generous free tier that covers this application end-to-end.
 The app runs in a Docker container with a **persistent volume** that keeps your
 SQLite database and fault photos intact across restarts and re-deployments.
 
-### Why Fly.io fits ServiceMgr
+### Why Fly.io fits mymaintlog
 - Persistent volumes → SQLite database and uploaded photos survive restarts
 - Scale-to-zero machines → $0 when the app is idle
 - 3 GB persistent storage free → enough for years of data and photos
@@ -64,7 +64,7 @@ SQLite database and fault photos intact across restarts and re-deployments.
 > app for $0.  The free resource allowances (machines, volume, bandwidth) apply
 > equally to both account types.
 
-A single ServiceMgr instance fits entirely within these limits.
+A single mymaintlog instance fits entirely within these limits.
 
 ### Step-by-step deployment
 
@@ -84,13 +84,13 @@ A single ServiceMgr instance fits entirely within these limits.
 
 3. **Create the app**
    ```bash
-   cd /path/to/servicemgr
-   fly apps create servicemgr   # pick a unique name
+   cd /path/to/mymaintlog
+   fly apps create mymaintlog   # pick a unique name
    ```
 
 4. **Create the persistent volume** (1 GB is plenty)
    ```bash
-   fly volumes create servicemgr_data --size 1 --region ams
+   fly volumes create mymaintlog_data --size 1 --region ams
    ```
 
 5. **Deploy**
@@ -131,7 +131,7 @@ charges above the Hobby plan minimum for low-traffic deployments.
 
 ### Scaling analysis by user count
 
-ServiceMgr is a Streamlit application backed by SQLite (WAL mode).  Key
+mymaintlog is a Streamlit application backed by SQLite (WAL mode).  Key
 resource drivers:
 
 - **Memory** – Streamlit base process uses ~150–200 MB; each additional
@@ -288,13 +288,13 @@ persistent volumes out of the box. It is simple to set up and reliable.
 ### Pricing
 - Hobby plan: **$5/month** ($60/year) – includes $5 of usage credit
 - Persistent volumes: included in usage credit
-- A small always-on ServiceMgr instance uses roughly $2–3/month of compute,
+- A small always-on mymaintlog instance uses roughly $2–3/month of compute,
   staying comfortably within the $5 credit.
 
 ### Deployment steps
 1. Create a free account at https://railway.app.
 2. Click **New Project → Deploy from GitHub repo**.
-3. Select the `servicemgr` repository. Railway auto-detects the `Dockerfile`.
+3. Select the `mymaintlog` repository. Railway auto-detects the `Dockerfile`.
 4. Add a **Volume** in the service settings, mount it at `/app/data`.
 5. Set the environment variable `PORT=8501` if Railway doesn't pick it up
    automatically.
@@ -317,7 +317,7 @@ inactivity (cold-start delay of ~30–60 seconds).
 ### Deployment steps
 1. Create an account at https://render.com.
 2. Click **New → Web Service → Connect a repository**.
-3. Choose the `servicemgr` repo. Render auto-detects the `Dockerfile`.
+3. Choose the `mymaintlog` repo. Render auto-detects the `Dockerfile`.
 4. Set **Start command** to: `streamlit run Home.py --server.port $PORT --server.address 0.0.0.0`
 5. Add a **Persistent Disk** under the service settings, mount at `/app/data`.
 
@@ -338,15 +338,15 @@ cores / 24 GB RAM) and 200 GB of block storage – all permanently free.
 1. Create a free Oracle Cloud account (credit card required for identity
    verification but not charged).
 2. Launch an Always Free VM (Ubuntu 22.04 LTS recommended).
-3. Attach a block volume and mount it at `/opt/servicemgr/data`.
+3. Attach a block volume and mount it at `/opt/mymaintlog/data`.
 4. Install Docker and clone the repository.
 5. Run with:
    ```bash
    docker run -d \
      -p 8501:8501 \
-     -v /opt/servicemgr/data:/app/data \
+     -v /opt/mymaintlog/data:/app/data \
      --restart unless-stopped \
-     servicemgr
+     mymaintlog
    ```
 6. Configure Nginx + Certbot for HTTPS.
 

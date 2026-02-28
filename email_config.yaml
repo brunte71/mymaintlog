@@ -9,7 +9,7 @@ smtp:
   username: ""  # Your email address
   password: ""  # Your email password or app-specific password
   from_email: ""  # Email address to send from
-  from_name: "ServiceMgr"
+  from_name: "mymaintlog"
 
 # Email template
 template:
@@ -25,7 +25,7 @@ template:
     
     Notes: {notes}
     
-    Please log in to ServiceMgr to view more details and complete the service.
+    Please log in to mymaintlog to view more details and complete the service.
     
     Best regards,
-    ServiceMgr
+    mymaintlog

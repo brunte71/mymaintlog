@@ -1,5 +1,5 @@
 """
-Service Management App - Main Entry Point
+mymaintlog - Main Entry Point
 
 This is a Streamlit-based service management application that helps manage:
 - Objects: Equipment (Vehicles, Facilities, Other)
@@ -21,7 +21,7 @@ import bcrypt
 
 # Set page config
 st.set_page_config(
-    page_title="Service Manager",
+    page_title="mymaintlog",
     page_icon="📋",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -33,7 +33,7 @@ if 'authenticated' not in st.session_state:
     st.session_state['authenticated'] = False
 
 if not st.session_state['authenticated']:
-    st.title("🔐 ServiceMgr Login")
+    st.title("🔐 mymaintlog Login")
     
     # Load users
     with open("users.yaml") as file:
@@ -116,7 +116,7 @@ Easily document faults with images and view all reports in real time.
 
 # Sidebar information
 with st.sidebar:
-    st.title("📋 Service Manager")
+    st.title("📋 mymaintlog")
     st.markdown("---")
     st.markdown("""
     ### Features
@@ -153,7 +153,7 @@ with st.sidebar:
     """)
 
 # Main content
-st.title("🎯 Welcome to Service Manager")
+st.title("🎯 Welcome to mymaintlog")
 
 st.markdown("""
 ## Get Started

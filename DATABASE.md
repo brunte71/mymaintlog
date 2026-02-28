@@ -1,4 +1,4 @@
-# Database vs CSV: Analysis and Recommendation for ServiceMgr
+# Database vs CSV: Analysis and Recommendation for mymaintlog
 
 ## Does replacing CSV with a database make a difference?
 
@@ -19,12 +19,12 @@
 
 ## Recommended database: SQLite (already implemented)
 
-SQLite is the right choice for ServiceMgr because:
+SQLite is the right choice for mymaintlog because:
 
 - **Zero cost** – part of Python's standard library; no server, no subscription.
 - **Zero configuration** – no installation, no connection strings.
 - **Drop-in replacement** – the entire public API of `DataHandler` is unchanged; no page code required modification.
-- **Single file** – `data/servicemgr.db` replaces six CSV files and their lock files.
+- **Single file** – `data/mymaintlog.db` replaces six CSV files and their lock files.
 - **WAL mode** – write-ahead logging allows simultaneous reads while a write is in progress, which is ideal for Streamlit's multi-thread model.
 - **Widely supported** – every cloud platform, Docker image and CI runner already has SQLite.
 
@@ -98,7 +98,7 @@ https://docs.streamlit.io/develop/tutorials/databases/postgresql
 
 ## Summary
 
-> **SQLite is the recommended database for ServiceMgr** — it is free, requires
+> **SQLite is the recommended database for mymaintlog** — it is free, requires
 > no external service, and is already implemented in this repository.  It
 > eliminates the file-locking complexity, reduces storage from six files to one,
 > and improves resilience against data corruption.
