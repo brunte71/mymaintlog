@@ -1,6 +1,6 @@
-# mymaintlog
+# MyMaintLog
 
-A Streamlit-based application for managing vehicle services, maintenance, and tracking.
+A Streamlit-based application for managing vehicle services, fault reports, maintenance, and tracking.
 
 ## Features
 
@@ -28,12 +28,6 @@ A Streamlit-based application for managing vehicle services, maintenance, and tr
 - Status filters (Active, Inactive, Maintenance)
 - Text-based search capabilities
 - Seamless state management between pages
-
-✅ **CSV-Based Data Storage**
-- Portable data format
-- Easy backup and recovery
-- Direct database compatibility
-- Export functionality for all data
 
 ✅ **Dashboard & Analytics**
 - Real-time overview of all objects and services
