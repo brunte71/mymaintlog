@@ -21,7 +21,7 @@ import bcrypt
 
 # Set page config
 st.set_page_config(
-    page_title="mymaintlog",
+    page_title="MyMaintLog",
     page_icon="📋",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -33,7 +33,7 @@ if 'authenticated' not in st.session_state:
     st.session_state['authenticated'] = False
 
 if not st.session_state['authenticated']:
-    st.title("🔐 mymaintlog Login")
+    st.title("🔐 MyMaintLog Login")
     
     # Load users
     with open("users.yaml") as file:
@@ -116,7 +116,7 @@ Easily document faults with images and view all reports in real time.
 
 # Sidebar information
 with st.sidebar:
-    st.title("📋 mymaintlog")
+    st.title("📋 MyMaintLog")
     st.markdown("---")
     st.markdown("""
     ### Features
