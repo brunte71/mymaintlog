@@ -8,6 +8,7 @@ st.set_page_config(page_title="Service Planning", layout="wide")
 
 
 StateManager.init_session_state()
+StateManager.enforce_auth()
 handler = DataHandler()
 user_email = st.session_state.get('user_email')
 is_admin = st.session_state.get('user_role') == 'admin'
@@ -154,7 +155,8 @@ with tab2:
                         meter_unit=meter_unit,
                         description=description,
                         status=status,
-                        notes=notes
+                        notes=notes,
+                        user_email=user_email
                     )
                     st.success(f"✓ Service scheduled successfully! ID: {service_id}")
                     st.rerun()

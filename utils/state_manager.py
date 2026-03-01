@@ -65,6 +65,14 @@ class StateManager:
         return st.session_state.get(StateManager.SESSION_KEYS["status_filter"], "All")
     
     @staticmethod
+    def enforce_auth():
+        """Stop page execution if the user is not authenticated."""
+        if not st.session_state.get('authenticated', False):
+            st.error("🔒 Please log in to access this page.")
+            st.info("Return to the **Home** page to sign in.")
+            st.stop()
+
+    @staticmethod
     def clear_filters():
         """Clear all filters."""
         st.session_state[StateManager.SESSION_KEYS["text_filter"]] = ""

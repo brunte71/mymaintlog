@@ -11,11 +11,26 @@ import pandas as pd
 import sqlite3
 from pathlib import Path
 from datetime import datetime
+import os
 
 DATA_DIR = Path(__file__).parent.parent / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
-DB_PATH = DATA_DIR / "mymaintlog.db"
+# Allow the database path to be overridden via environment variable so that
+# containerised deployments (e.g. Fly.io with a mounted volume) can point to
+# a persistent location without changing source code.
+_DEFAULT_DB_PATH = DATA_DIR / "mymaintlog.db"
+_env_db_path = os.environ.get("MYMAINTLOG_DB_PATH")
+if _env_db_path:
+    _env_db_dir = Path(_env_db_path).parent
+    try:
+        _env_db_dir.mkdir(parents=True, exist_ok=True)
+        DB_PATH = Path(_env_db_path)
+    except OSError:
+        # Fall back to default if the env-supplied path is unusable
+        DB_PATH = _DEFAULT_DB_PATH
+else:
+    DB_PATH = _DEFAULT_DB_PATH
 
 # Backward compatibility: if the new database file doesn't exist yet but the
 # legacy "servicemgr.db" does, keep using the legacy path so existing

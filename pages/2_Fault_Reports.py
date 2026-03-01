@@ -9,6 +9,7 @@ st.set_page_config(page_title="Fault Reports", layout="wide")
 
 
 StateManager.init_session_state()
+StateManager.enforce_auth()
 handler = DataHandler()
 user_email = st.session_state.get('user_email')
 is_admin = st.session_state.get('user_role') == 'admin'
