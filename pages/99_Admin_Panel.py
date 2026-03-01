@@ -2,11 +2,14 @@ import streamlit as st
 import yaml
 import bcrypt
 from utils.data_handler import DataHandler
+from utils.state_manager import StateManager
 
 st.set_page_config(page_title="Admin Panel", layout="wide")
 st.title("👤 Admin Panel")
 st.markdown("**Administrator Control Panel** - Manage users and view all system data")
 st.markdown("---")
+
+StateManager.enforce_auth()
 
 user_email = st.session_state.get('user_email')
 is_admin = False

@@ -8,6 +8,7 @@ st.set_page_config(page_title="Service Reports", layout="wide")
 
 
 StateManager.init_session_state()
+StateManager.enforce_auth()
 handler = DataHandler()
 user_email = st.session_state.get('user_email')
 is_admin = st.session_state.get('user_role') == 'admin'
@@ -157,7 +158,8 @@ with tab2:
                         completion_date=str(completion_date),
                         notes=notes,
                         actual_meter_reading=int(actual_meter_reading) if actual_meter_reading is not None else None,
-                        meter_unit=meter_unit
+                        meter_unit=meter_unit,
+                        user_email=user_email
                     )
                     st.success(f"✓ Report added successfully! ID: {report_id}")
                     st.rerun()
