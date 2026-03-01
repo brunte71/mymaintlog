@@ -22,6 +22,10 @@ primary_region = 'iad'
   cpus = 1
   memory_mb = 1024
 
+[deploy]
+  # Use a single machine at a time so only one volume is required.
+  strategy = "immediate"
+
 [[mounts]]
   # Persistent volume keeps the SQLite database across machine restarts.
   # Create the volume before first deploy: fly volumes create mymaintlog_data --size 1
