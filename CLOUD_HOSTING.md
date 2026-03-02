@@ -90,7 +90,7 @@ A single mymaintlog instance fits entirely within these limits.
 
 4. **Create the persistent volume** (1 GB is plenty)
    ```bash
-   fly volumes create mymaintlog_data --size 1 --region ams
+   fly volumes create mymaintlog_data --size 1 --region ard
    ```
 
 5. **Deploy**
