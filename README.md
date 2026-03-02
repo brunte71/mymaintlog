@@ -70,21 +70,72 @@ Main tables:
 - `meter_units`: allowed unit values
 - `fault_photos`: image blobs for fault reports
 
-## Installation
+## Local Setup
 
-1. **Clone or download the project**
+### Prerequisites
 
-2. **Install Python dependencies**
+- [Git](https://git-scm.com/)
+- Python 3.8 or higher ([python.org](https://www.python.org/downloads/))
+
+### Steps
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/brunte71/mymaintlog.git
+   cd mymaintlog
+   ```
+
+2. **Create and activate a virtual environment** *(recommended)*
+   ```bash
+   # macOS / Linux
+   python3 -m venv .venv
+   source .venv/bin/activate
+
+   # Windows (Command Prompt)
+   python -m venv .venv
+   .venv\Scripts\activate
+   ```
+
+3. **Install Python dependencies**
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Run the application**
+4. **Create the data directory** *(required on first run)*
+
+   macOS / Linux:
+   ```bash
+   mkdir -p data
+   ```
+   Windows (Command Prompt):
+   ```cmd
+   mkdir data
+   ```
+   The SQLite database (`data/mymaintlog.db`) is created automatically when the app first starts.
+
+5. **Run the application**
    ```bash
    streamlit run Home.py
    ```
+   The app opens in your default browser at `http://localhost:8501`.
 
-The app will open in your default browser at `http://localhost:8501`
+### Default Login Credentials
+
+The `users.yaml` file ships with two example accounts you can use straight away:
+
+| Email | Password | Role |
+|---|---|---|
+| `brunte71@example.com` | `admin123` | admin |
+| `user1@example.com` | `user123` | user |
+
+> ⚠️ **Security notice:** Change these passwords before exposing the app on any shared network
+> or the internet. Replace the bcrypt hashes in `users.yaml` using the helper below.
+
+> **Tip:** Generate a bcrypt hash for a new password with:
+> ```python
+> import bcrypt
+> print(bcrypt.hashpw(b"yourpassword", bcrypt.gensalt()).decode())
+> ```
 
 ## Usage Guide
 
