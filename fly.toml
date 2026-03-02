@@ -29,6 +29,6 @@ primary_region = 'ard'
 
 [[mounts]]
   # Persistent volume keeps the SQLite database across machine restarts.
-  # Create the volume before first deploy: fly volumes create mymaintlog_data --size 1
+  # Create the volume before first deploy: fly volumes create mymaintlog_data --size 1 --region ard
   source = "mymaintlog_data"
   destination = "/app/data"
