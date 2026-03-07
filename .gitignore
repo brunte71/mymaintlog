@@ -34,3 +34,4 @@ Thumbs.db
 
 # Streamlit local dev cache
 .streamlit/secrets.toml
+.devcontainer/
