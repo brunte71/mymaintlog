@@ -76,7 +76,9 @@ class StateManager:
     def init_and_enforce(cm):
         """
         Unified auth setup for every page:
-          1. Wait for CookieManager to initialise (first render may return None).
+          1. On the very first render give the CookieController JS component one
+             render cycle to deliver cookies (st.stop() guarded by a flag so it
+             only fires once per browser session).
           2. Try to restore session from the browser cookie if not in session_state.
           3. Enforce authentication — stop if not logged in.
           4. Check inactivity timeout (10 min); logout + stop if exceeded.
@@ -89,11 +91,11 @@ class StateManager:
         )
 
         if not st.session_state.get("authenticated"):
-            cookies = cm.get_all()
-            if cookies is None:
-                # CookieManager iframe hasn't sent data back yet — wait one render
+            # Guard: give the JS component exactly one render to fire
+            if not st.session_state.get("_mml_init_done"):
+                st.session_state["_mml_init_done"] = True
                 st.stop()
-            try_restore_session(cm, cookies)
+            try_restore_session(cm)
 
         if not st.session_state.get("authenticated", False):
             if st.session_state.pop("_session_expired", False):

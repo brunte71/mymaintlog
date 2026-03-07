@@ -5,11 +5,11 @@ from utils.data_handler import DataHandler
 from utils.state_manager import StateManager
 from utils import selectbox_label
 from datetime import datetime
-import extra_streamlit_components as stx
+from streamlit_cookies_controller import CookieController
 
 st.set_page_config(page_title="Fault Reports", layout="wide")
 
-cm = stx.CookieManager(key="cookies")
+cm = CookieController(key="cookies")
 StateManager.init_session_state()
 StateManager.init_and_enforce(cm)
 handler = DataHandler()

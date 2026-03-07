@@ -16,9 +16,9 @@ import streamlit as st
 from utils.state_manager import StateManager
 from utils.auth_session import (
     try_restore_session, make_session_cookie, do_logout,
-    refresh_cookie_if_needed, COOKIE_NAME, INACTIVITY_TIMEOUT,
+    refresh_cookie_if_needed, COOKIE_NAME, INACTIVITY_TIMEOUT, COOKIE_MAX_AGE,
 )
-import extra_streamlit_components as stx
+from streamlit_cookies_controller import CookieController
 import yaml
 from yaml.loader import SafeLoader
 import bcrypt
@@ -34,15 +34,18 @@ st.set_page_config(
 )
 
 # --- Cookie Manager (must be created right after set_page_config) ---
-cm = stx.CookieManager(key="cookies")
+cm = CookieController(key="cookies")
 
 # --- User Authentication ---
-# Try to restore session from browser cookie on page refresh
+# Try to restore session from browser cookie on page refresh.
+# CookieController reads cookies via a JS component.  On the very first render
+# the component hasn't fired yet (returns empty dict), so we do one mandatory
+# st.stop() to give it a chance to send the cookie data back to Python.
 if not st.session_state.get("authenticated"):
-    cookies = cm.get_all()
-    if cookies is None:
-        st.stop()  # Wait one render for CookieManager iframe to initialise
-    try_restore_session(cm, cookies)
+    if not st.session_state.get("_mml_init_done"):
+        st.session_state["_mml_init_done"] = True
+        st.stop()   # Wait one render for the JS component to deliver cookies
+    try_restore_session(cm)
 
 # Show expiry notice carried over from a sub-page timeout
 if st.session_state.pop("_session_expired", False):
@@ -85,7 +88,7 @@ if not st.session_state.get("authenticated"):
                     # Persist session in browser cookie
                     cm.set(COOKIE_NAME, make_session_cookie(
                         username, user_data['role'], user_data['name'], news_views
-                    ))
+                    ), max_age=COOKIE_MAX_AGE)
                     st.session_state['last_activity'] = time.time()
                     st.success(f"Welcome {user_data['name']}!")
                     st.rerun()

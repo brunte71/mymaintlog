@@ -7,6 +7,10 @@ Stores: email, role, display name, news_views counter, login timestamp,
 
 The INACTIVITY_TIMEOUT is enforced both server-side (session_state) and
 inside the cookie value so that the timeout survives a full page refresh.
+
+Uses streamlit-cookies-controller (CookieController) instead of the older
+extra_streamlit_components CookieManager.  The cm argument accepted by every
+public function below should be a CookieController instance.
 """
 
 import hmac
@@ -21,6 +25,11 @@ import streamlit as st
 COOKIE_NAME = "mml_session"
 INACTIVITY_TIMEOUT = 600       # 10 minutes in seconds
 _COOKIE_REFRESH_INTERVAL = 60  # refresh cookie's last_activity every 60 s
+
+# How long the browser should keep the cookie between visits.
+# The server-side inactivity check enforces the 10-minute idle limit;
+# the cookie itself lasts 7 days so it survives machine restarts / sleeps.
+COOKIE_MAX_AGE = 7 * 24 * 3600  # 7 days in seconds
 
 # Override with the MYMAINTLOG_SECRET environment variable in production.
 _SECRET = os.environ.get("MYMAINTLOG_SECRET", "mymaintlog-dev-key-change-in-prod")
@@ -88,9 +97,10 @@ def _validate(value: str):
         return None
 
 
-def try_restore_session(cm, cookies: dict = None) -> bool:
+def try_restore_session(cm) -> bool:
     """
     Attempt to restore an authenticated session from the browser cookie.
+    cm must be a CookieController instance.
     Returns True if a valid, non-expired session was found and restored.
     """
     if st.session_state.get("authenticated"):
@@ -98,17 +108,13 @@ def try_restore_session(cm, cookies: dict = None) -> bool:
 
     # Prevent restoring session immediately after an explicit logout or timeout
     if st.session_state.get("_do_not_restore"):
-        if cookies is None:
-            cookies = cm.get_all() or {}
-        if not cookies.get(COOKIE_NAME):
+        val = cm.get(COOKIE_NAME)
+        if not val:
             # Cookie is gone — safe to clear the block flag
             st.session_state.pop("_do_not_restore", None)
         return False
 
-    if cookies is None:
-        cookies = cm.get_all() or {}
-
-    val = cookies.get(COOKIE_NAME)
+    val = cm.get(COOKIE_NAME)
     if not val:
         return False
 
@@ -116,7 +122,7 @@ def try_restore_session(cm, cookies: dict = None) -> bool:
     if payload is None:
         # Cookie is invalid or timed out — delete it
         try:
-            cm.delete(COOKIE_NAME)
+            cm.remove(COOKIE_NAME)
             st.session_state["_do_not_restore"] = True
         except Exception:
             pass
@@ -134,7 +140,7 @@ def try_restore_session(cm, cookies: dict = None) -> bool:
     })
     # Refresh the cookie's last_activity so the 10-min window slides forward
     try:
-        cm.set(COOKIE_NAME, _refresh_la(val))
+        cm.set(COOKIE_NAME, _refresh_la(val), max_age=COOKIE_MAX_AGE)
     except Exception:
         pass
     return True
@@ -149,13 +155,10 @@ def refresh_cookie_if_needed(cm):
     if now - st.session_state.get("_cookie_refreshed_at", 0) < _COOKIE_REFRESH_INTERVAL:
         return
     try:
-        cookies = cm.get_all()
-        if not cookies:
-            return
-        val = cookies.get(COOKIE_NAME)
+        val = cm.get(COOKIE_NAME)
         if not val:
             return
-        cm.set(COOKIE_NAME, _refresh_la(val))
+        cm.set(COOKIE_NAME, _refresh_la(val), max_age=COOKIE_MAX_AGE)
         st.session_state["_cookie_refreshed_at"] = now
     except Exception:
         pass
@@ -169,7 +172,7 @@ def do_logout(cm):
     """
     st.session_state["_do_not_restore"] = True
     try:
-        cm.delete(COOKIE_NAME)
+        cm.remove(COOKIE_NAME)
     except Exception:
         pass
     for k in ("authenticated", "user_email", "user_role", "user_name",
